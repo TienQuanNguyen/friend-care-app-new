@@ -99,7 +99,7 @@ export const CareSpaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .from('profiles')
       .upsert({
         user_id: user.id,
-        care_space_id: space.id,
+        care_space_id: (space as any).id,
         display_name: user.email.split('@')[0],
         avatar_emoji: savedAvatar,
         role: 'member'
