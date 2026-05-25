@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCareSpace } from '../contexts/CareSpaceContext';
 import { loveNoteService } from '../services/loveNoteService';
 import { LoveNote } from '../types';
-import { format } from 'date-fns';
+import { format, parseISO, differenceInDays } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Heart, Flame, Sparkles, CheckCircle2 } from 'lucide-react';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -20,20 +20,57 @@ export const LoveNotes = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // Local Mock State for Check-ins
-  const [isCheckedIn, setIsCheckedIn] = useState(false);
-  const [streak, setStreak] = useState(12);
-  const [bestStreak, setBestStreak] = useState(45);
+  // Streaks are computed from notes
+  const [streak, setStreak] = useState(0);
+  const [bestStreak, setBestStreak] = useState(0);
+  const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
 
   useEffect(() => {
     loadNotes();
-    // Simulate checking if checked in today
-    const lastCheckIn = localStorage.getItem('friendcare_last_checkin');
-    const today = format(new Date(), 'yyyy-MM-dd');
-    if (lastCheckIn === today) {
-      setIsCheckedIn(true);
-    }
   }, []);
+
+  useEffect(() => {
+    if (!notes.length) {
+      setStreak(0);
+      setBestStreak(0);
+      setHasCheckedInToday(false);
+      return;
+    }
+
+    const dates = Array.from(new Set(notes.map(n => format(parseISO(n.created_at), 'yyyy-MM-dd'))))
+      .sort((a, b) => b.localeCompare(a));
+      
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const yesterdayStr = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
+    
+    let current = 0;
+    if (dates[0] === todayStr || dates[0] === yesterdayStr) {
+      current = 1;
+      for (let i = 0; i < dates.length - 1; i++) {
+        if (differenceInDays(parseISO(dates[i]), parseISO(dates[i+1])) === 1) {
+          current++;
+        } else {
+          break;
+        }
+      }
+    }
+    
+    let best = 1;
+    let temp = 1;
+    for (let i = 0; i < dates.length - 1; i++) {
+      if (differenceInDays(parseISO(dates[i]), parseISO(dates[i+1])) === 1) {
+        temp++;
+      } else {
+        if (temp > best) best = temp;
+        temp = 1;
+      }
+    }
+    if (temp > best) best = temp;
+    
+    setStreak(current);
+    setBestStreak(best);
+    setHasCheckedInToday(dates[0] === todayStr);
+  }, [notes]);
 
   const loadNotes = async () => {
     setIsLoading(true);
@@ -45,12 +82,20 @@ export const LoveNotes = () => {
     }
   };
 
-  const handleCheckIn = () => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    localStorage.setItem('friendcare_last_checkin', today);
-    setIsCheckedIn(true);
-    setStreak(s => s + 1);
-    if (streak + 1 > bestStreak) setBestStreak(streak + 1);
+  const handleCheckIn = async () => {
+    if (!user || !careSpace || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    try {
+      await loveNoteService.addNote({
+        care_space_id: careSpace.id,
+        created_by: user.id,
+        message: 'Đã ghé thăm không gian ❤️',
+      });
+      loadNotes();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSubmitNote = async (e: React.FormEvent) => {
@@ -137,7 +182,7 @@ export const LoveNotes = () => {
       <Card className="bg-white shadow-card border-none text-center py-8 px-4">
         <h2 className="text-xl font-bold text-text-main mb-2">Điểm danh nhẹ mỗi ngày</h2>
 
-        {!isCheckedIn ? (
+        {!hasCheckedInToday ? (
           <>
             <p className="text-text-soft text-sm mb-6 max-w-md mx-auto">
               Hôm nay hai bạn chưa có bản ghi? Hãy gửi ngay một nút chạm nhẹ thay lời chào!

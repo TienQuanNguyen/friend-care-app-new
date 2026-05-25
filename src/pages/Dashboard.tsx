@@ -28,7 +28,7 @@ export const Dashboard = () => {
   const [recentMoods, setRecentMoods] = useState<MoodEntry[]>([]);
   const [upcomingSchedules, setUpcomingSchedules] = useState<Schedule[]>([]);
   const [recentFoods, setRecentFoods] = useState<FoodPlace[]>([]);
-  
+
   // Daily Mood Check-in state
   const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
   const [isSavingMood, setIsSavingMood] = useState(false);
@@ -45,7 +45,7 @@ export const Dashboard = () => {
         }
       }
     });
-    
+
     foodService.getPlaces().then(data => setRecentFoods(data.filter(f => !f.tried).slice(0, 2)));
     scheduleService.getSchedules().then(data => {
       const now = new Date();
@@ -69,7 +69,7 @@ export const Dashboard = () => {
       });
       setHasCheckedInToday(true);
       setShowConfetti(true);
-      
+
       // Reload recent moods
       const data = await moodService.getEntries();
       setRecentMoods(data.slice(0, 2));
@@ -84,7 +84,7 @@ export const Dashboard = () => {
     const h = new Date().getHours();
     if (h < 12) return 'Chào buổi sáng! ☀️';
     if (h < 18) return 'Chào buổi chiều! 🌤️';
-    return 'Chào buổi tối! 🌙';
+    return 'Chào buổi tối Sơn Duyên kkk! 🌙';
   };
 
   return (
@@ -152,7 +152,7 @@ export const Dashboard = () => {
                 <Smile className="w-5 h-5 text-brand-accent" /> Check-in hôm nay
               </h2>
             </div>
-            
+
             {hasCheckedInToday ? (
               <div className="flex items-center justify-center gap-3 bg-white rounded-2xl p-6 border border-canvas-dark shadow-sm">
                 <AnimatedCheck size={32} color="#10B981" />
@@ -165,7 +165,7 @@ export const Dashboard = () => {
               <div className="space-y-3">
                 <p className="text-sm text-text-main font-medium mb-4">Ngay lúc này bạn cảm thấy thế nào?</p>
                 <div className="grid grid-cols-3 gap-2">
-                  <button 
+                  <button
                     onClick={() => handleQuickMood('Hạnh phúc')}
                     disabled={isSavingMood}
                     className="flex flex-col items-center justify-center bg-white rounded-xl py-3 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all disabled:opacity-50"
@@ -173,7 +173,7 @@ export const Dashboard = () => {
                     <span className="text-2xl mb-1">✨</span>
                     <span className="text-xs font-bold text-amber-600">Tuyệt vời</span>
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleQuickMood('Bình yên')}
                     disabled={isSavingMood}
                     className="flex flex-col items-center justify-center bg-white rounded-xl py-3 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all disabled:opacity-50"
@@ -181,7 +181,7 @@ export const Dashboard = () => {
                     <span className="text-2xl mb-1">🌿</span>
                     <span className="text-xs font-bold text-emerald-600">Bình thường</span>
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleQuickMood('Mệt mỏi')}
                     disabled={isSavingMood}
                     className="flex flex-col items-center justify-center bg-white rounded-xl py-3 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all disabled:opacity-50"
