@@ -138,7 +138,10 @@ CREATE POLICY "Users can update their own profile"
 -- Care Spaces Policies
 CREATE POLICY "Users can view their own care space"
   ON care_spaces FOR SELECT
-  USING (id = get_user_care_space_id(auth.uid()));
+  USING (
+    created_by = auth.uid() OR 
+    id = get_user_care_space_id(auth.uid())
+  );
 
 CREATE POLICY "Users can create a care space"
   ON care_spaces FOR INSERT

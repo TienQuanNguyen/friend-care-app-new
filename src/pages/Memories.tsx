@@ -9,12 +9,17 @@ import { Memory } from '../types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Image as ImageIcon } from 'lucide-react';
+import { Skeleton } from '../components/ui/Skeleton';
+import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 
 export const Memories = () => {
   const { user } = useAuth();
   const { careSpace } = useCareSpace();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -25,27 +30,39 @@ export const Memories = () => {
   }, []);
 
   const loadMemories = async () => {
-    const data = await memoryService.getMemories();
-    setMemories(data);
+    setIsLoading(true);
+    try {
+      const data = await memoryService.getMemories();
+      setMemories(data);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !user || !careSpace) return;
 
-    await memoryService.addMemory({
-      care_space_id: careSpace.id,
-      created_by: user.id,
-      title,
-      description,
-      memory_date: memoryDate || undefined,
-    });
+    setIsSubmitting(true);
+    try {
+      await memoryService.addMemory({
+        care_space_id: careSpace.id,
+        created_by: user.id,
+        title,
+        description,
+        memory_date: memoryDate || undefined,
+      });
 
-    setTitle('');
-    setDescription('');
-    setMemoryDate('');
-    setIsAdding(false);
-    loadMemories();
+      setTitle('');
+      setDescription('');
+      setMemoryDate('');
+      setIsAdding(false);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+      loadMemories();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -85,14 +102,23 @@ export const Memories = () => {
               </div>
             </div>
             <div className="flex justify-end pt-2">
-              <Button type="submit">Lưu kỷ niệm</Button>
+              <Button type="submit" disabled={isSubmitting} className="flex items-center gap-2">
+                {isSubmitting ? 'Đang lưu...' : 'Lưu kỷ niệm'}
+                {showSuccess && <AnimatedCheck size={16} color="#fff" />}
+              </Button>
             </div>
           </form>
         </Card>
       )}
 
       <div className="grid md:grid-cols-3 gap-6">
-        {memories.map(memory => {
+        {isLoading ? (
+          <>
+            <Skeleton className="h-64" />
+            <Skeleton className="h-64" />
+            <Skeleton className="h-64" />
+          </>
+        ) : memories.map(memory => {
           const displayDate = memory.memory_date || memory.created_at;
           return (
             <Card key={memory.id} padding="none" className="overflow-hidden hover:shadow-nav transition-shadow">
@@ -111,7 +137,7 @@ export const Memories = () => {
             </Card>
           );
         })}
-        {memories.length === 0 && !isAdding && (
+        {!isLoading && memories.length === 0 && !isAdding && (
           <div className="md:col-span-3 text-center py-12 text-text-soft italic bg-white rounded-card">
             Chưa có kỷ niệm nào.
           </div>

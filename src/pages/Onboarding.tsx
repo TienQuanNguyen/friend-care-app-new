@@ -30,7 +30,7 @@ type Mode = 'select' | 'join' | 'create' | 'pick-avatar';
 
 export const Onboarding = () => {
   const [mode, setMode] = useState<Mode>('select');
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(() => localStorage.getItem('friendcare_last_invite_code') || '');
   const [name, setName] = useState('');
   const [pendingAction, setPendingAction] = useState<'join' | 'create' | null>(null);
   const [selectedAvatar, setSelectedAvatar] = useState<string>('🐱');

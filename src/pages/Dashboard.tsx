@@ -7,8 +7,11 @@ import { moodService } from '../services/moodService';
 import { scheduleService } from '../services/scheduleService';
 import { foodService } from '../services/foodService';
 import { MoodEntry, Schedule, FoodPlace } from '../types';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isToday } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { AnimatedCheck } from '../components/ui/AnimatedCheck';
+import { MiniConfetti } from '../components/ui/MiniConfetti';
+import { useAuth } from '../contexts/AuthContext';
 
 const stagger: Variants = {
   initial: {},
@@ -20,33 +23,61 @@ const fadeUp: Variants = {
 };
 
 export const Dashboard = () => {
+  const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
   const [recentMoods, setRecentMoods] = useState<MoodEntry[]>([]);
   const [upcomingSchedules, setUpcomingSchedules] = useState<Schedule[]>([]);
   const [recentFoods, setRecentFoods] = useState<FoodPlace[]>([]);
-
-  // Mock Streak state
-  const [streak] = useState(12);
-  const [isCheckedIn, setIsCheckedIn] = useState(false);
+  
+  // Daily Mood Check-in state
+  const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
+  const [isSavingMood, setIsSavingMood] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
-    moodService.getEntries().then(data => setRecentMoods(data.slice(0, 2)));
+    moodService.getEntries().then(data => {
+      setRecentMoods(data.slice(0, 2));
+      // Check if user has an entry today
+      if (user) {
+        const todayEntries = data.filter(e => e.created_by === user.id && isToday(parseISO(e.entry_date)));
+        if (todayEntries.length > 0) {
+          setHasCheckedInToday(true);
+        }
+      }
+    });
+    
     foodService.getPlaces().then(data => setRecentFoods(data.filter(f => !f.tried).slice(0, 2)));
     scheduleService.getSchedules().then(data => {
       const now = new Date();
       const upcoming = data.filter(s => new Date(s.start_time) >= now).slice(0, 2);
       setUpcomingSchedules(upcoming);
     });
+  }, [user]);
 
-    const lastCheckIn = localStorage.getItem('friendcare_last_checkin');
-    const today = format(new Date(), 'yyyy-MM-dd');
-    if (lastCheckIn === today) setIsCheckedIn(true);
-  }, []);
-
-  const handleCheckIn = () => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    localStorage.setItem('friendcare_last_checkin', today);
-    setIsCheckedIn(true);
+  const handleQuickMood = async (moodName: string) => {
+    if (!careSpace || !user || isSavingMood) return;
+    setIsSavingMood(true);
+    try {
+      await moodService.addEntry({
+        care_space_id: careSpace.id,
+        created_by: user.id,
+        mood: moodName as any,
+        energy_level: 5,
+        note: '',
+        gratitude: '',
+        entry_date: format(new Date(), 'yyyy-MM-dd')
+      });
+      setHasCheckedInToday(true);
+      setShowConfetti(true);
+      
+      // Reload recent moods
+      const data = await moodService.getEntries();
+      setRecentMoods(data.slice(0, 2));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSavingMood(false);
+    }
   };
 
   const getGreeting = () => {
@@ -109,38 +140,58 @@ export const Dashboard = () => {
 
       <motion.div className="grid md:grid-cols-2 gap-6" variants={stagger}>
 
-        {/* Love Fire — Green */}
+        {/* Quick Check-in */}
         <motion.div variants={fadeUp}>
           <Card
             animate={false}
-            className="bg-canvas-cool border border-canvas-dark shadow-card hover:shadow-card-hover transition-shadow cursor-pointer"
+            className="bg-canvas-cool border border-canvas-dark shadow-card hover:shadow-card-hover transition-shadow relative"
           >
+            {showConfetti && <MiniConfetti onComplete={() => setShowConfetti(false)} />}
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-brand-house flex items-center gap-2">
-                <Flame className="w-5 h-5 text-brand-accent" /> Giữ lửa tình bạn
+                <Smile className="w-5 h-5 text-brand-accent" /> Check-in hôm nay
               </h2>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="bg-white rounded-2xl p-4 text-center min-w-[80px] shadow-sm border border-canvas-dark">
-                <div className="text-3xl font-black text-brand-accent mb-1">{streak}</div>
-                <div className="text-[10px] font-bold text-text-soft uppercase">Ngày</div>
+            
+            {hasCheckedInToday ? (
+              <div className="flex items-center justify-center gap-3 bg-white rounded-2xl p-6 border border-canvas-dark shadow-sm">
+                <AnimatedCheck size={32} color="#10B981" />
+                <div className="text-center">
+                  <h3 className="font-bold text-text-main">Tuyệt vời!</h3>
+                  <p className="text-xs text-text-soft">Bạn đã ghi lại cảm xúc hôm nay rồi.</p>
+                </div>
               </div>
-              <div className="flex-1">
-                <p className="text-sm text-text-main font-medium leading-relaxed mb-3">
-                  {isCheckedIn
-                    ? '✅ Tuyệt vời! Hôm nay chúng ta lại đồng hành cùng nhau.'
-                    : 'Đừng quên điểm danh hôm nay nhé!'}
-                </p>
-                {!isCheckedIn && (
-                  <button
-                    onClick={handleCheckIn}
-                    className="bg-brand-accent text-white text-xs font-bold px-4 py-2 rounded-full hover:bg-brand transition-colors shadow-glow"
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-text-main font-medium mb-4">Ngay lúc này bạn cảm thấy thế nào?</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <button 
+                    onClick={() => handleQuickMood('Hạnh phúc')}
+                    disabled={isSavingMood}
+                    className="flex flex-col items-center justify-center bg-white rounded-xl py-3 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all disabled:opacity-50"
                   >
-                    Điểm danh ngay 💚
+                    <span className="text-2xl mb-1">✨</span>
+                    <span className="text-xs font-bold text-amber-600">Tuyệt vời</span>
                   </button>
-                )}
+                  <button 
+                    onClick={() => handleQuickMood('Bình yên')}
+                    disabled={isSavingMood}
+                    className="flex flex-col items-center justify-center bg-white rounded-xl py-3 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all disabled:opacity-50"
+                  >
+                    <span className="text-2xl mb-1">🌿</span>
+                    <span className="text-xs font-bold text-emerald-600">Bình thường</span>
+                  </button>
+                  <button 
+                    onClick={() => handleQuickMood('Mệt mỏi')}
+                    disabled={isSavingMood}
+                    className="flex flex-col items-center justify-center bg-white rounded-xl py-3 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all disabled:opacity-50"
+                  >
+                    <span className="text-2xl mb-1">☕</span>
+                    <span className="text-xs font-bold text-orange-600">Mệt mỏi</span>
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </Card>
         </motion.div>
 

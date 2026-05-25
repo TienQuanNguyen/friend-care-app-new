@@ -22,6 +22,9 @@ import {
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { CalendarHeart, ChevronLeft, ChevronRight, LayoutGrid, List, TableProperties } from 'lucide-react';
+import { Skeleton } from '../components/ui/Skeleton';
+import { AnimatedCheck } from '../components/ui/AnimatedCheck';
+import { MiniConfetti } from '../components/ui/MiniConfetti';
 
 const CATEGORIES: { value: ScheduleCategory, label: string }[] = [
   { value: 'work', label: 'Công việc' },
@@ -62,6 +65,10 @@ export const Schedules = () => {
   const { careSpace } = useCareSpace();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [isAdding, setIsAdding] = useState(false);
+  const [error, setError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showConfettiFor, setShowConfettiFor] = useState<string | null>(null);
   
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('Tháng');
@@ -81,8 +88,23 @@ export const Schedules = () => {
   }, []);
 
   const loadSchedules = async () => {
-    const data = await scheduleService.getSchedules();
-    setSchedules(data);
+    setIsLoading(true);
+    try {
+      const data = await scheduleService.getSchedules();
+      setSchedules(data);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleStatus = async (schedule: Schedule) => {
+    const newStatus: ScheduleStatus = schedule.status === 'done' ? 'todo' : 'done';
+    await scheduleService.updateSchedule(schedule.id, { status: newStatus });
+    if (newStatus === 'done') {
+      setShowConfettiFor(schedule.id);
+      setTimeout(() => setShowConfettiFor(null), 3000);
+    }
+    loadSchedules();
   };
 
   const resetForm = () => {
@@ -100,25 +122,36 @@ export const Schedules = () => {
     e.preventDefault();
     if (!title || !dateStr || !startTime || !user || !careSpace) return;
 
+    setError('');
+    setIsSubmitting(true);
     const startDateTime = new Date(`${dateStr}T${startTime}`);
     const endDateTime = endTime ? new Date(`${dateStr}T${endTime}`) : undefined;
 
-    await scheduleService.addSchedule({
-      care_space_id: careSpace.id,
-      created_by: user.id,
-      title,
-      description,
-      start_time: startDateTime.toISOString(),
-      end_time: endDateTime?.toISOString(),
-      category,
-      assigned_to: assignedTo,
-      status,
-      color_type: category === 'couple' ? 'pink' : 'gray',
-    });
+    try {
+      const result = await scheduleService.addSchedule({
+        care_space_id: careSpace.id,
+        created_by: user.id,
+        title,
+        description,
+        start_time: startDateTime.toISOString(),
+        end_time: endDateTime?.toISOString(),
+        category,
+        assigned_to: assignedTo,
+        status,
+        color_type: category === 'couple' ? 'pink' : 'gray',
+      });
 
-    resetForm();
-    setIsAdding(false);
-    loadSchedules();
+      if (!result) throw new Error("Tạo lịch thất bại. Vui lòng thử lại.");
+
+      resetForm();
+      setIsAdding(false);
+      loadSchedules();
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Đã xảy ra lỗi khi lưu.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Calendar logic
@@ -222,6 +255,13 @@ export const Schedules = () => {
         <Card className="bg-white/80 backdrop-blur border border-brand-light shadow-card rounded-card">
           <form onSubmit={handleSubmit} className="space-y-4">
             <h2 className="font-bold text-xl text-text-main border-b border-canvas-cool pb-4">Tạo lịch hẹn mới</h2>
+            
+            {error && (
+              <div className="p-3 mb-2 text-sm text-semantic-destructive bg-semantic-destructive/10 rounded-lg">
+                {error}
+              </div>
+            )}
+            
             <div className="grid md:grid-cols-2 gap-4">
               <Input label="Tiêu đề *" value={title} onChange={e => setTitle(e.target.value)} required />
               <Input label="Mô tả" value={description} onChange={e => setDescription(e.target.value)} />
@@ -272,7 +312,9 @@ export const Schedules = () => {
             </div>
             <div className="flex justify-end gap-3 pt-4 border-t border-canvas-cool mt-4">
               <Button type="button" onClick={() => setIsAdding(false)} className="bg-canvas-ceramic text-text-main border border-gray-200">Hủy</Button>
-              <Button type="submit" className="bg-brand text-white hover:bg-brand-accent">Lưu lịch hẹn</Button>
+              <Button type="submit" className="bg-brand text-white hover:bg-brand-accent" disabled={isSubmitting}>
+                {isSubmitting ? 'Đang lưu...' : 'Lưu lịch hẹn'}
+              </Button>
             </div>
           </form>
         </Card>
@@ -286,6 +328,10 @@ export const Schedules = () => {
               <CalendarHeart className="w-8 h-8 text-brand-accent" />
             </div>
             <p className="text-text-soft">Chưa có lịch hẹn nào. Tạo một lịch nhỏ để hai bạn cùng nhớ nhé.</p>
+          </div>
+        ) : isLoading ? (
+          <div className="p-4 space-y-4">
+            <Skeleton className="h-64" />
           </div>
         ) : (
           <>
@@ -398,8 +444,24 @@ export const Schedules = () => {
                           <span>👤 {ASSIGNMENTS.find(a => a.value === schedule.assigned_to)?.label}</span>
                         </div>
                         {schedule.description && (
-                          <p className="text-sm text-text-soft bg-canvas-cool p-2 rounded-lg">{schedule.description}</p>
+                          <p className="text-sm text-text-soft bg-canvas-cool p-2 rounded-lg mb-3">{schedule.description}</p>
                         )}
+                        <div className="flex justify-end border-t border-canvas-cool pt-3 mt-auto">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => toggleStatus(schedule)}
+                            className={`flex items-center gap-2 rounded-full relative transition-colors ${
+                              schedule.status === 'done' 
+                                ? 'text-brand bg-brand-light/20 hover:bg-brand-light/40' 
+                                : 'text-text-soft hover:bg-canvas-cool'
+                            }`}
+                          >
+                            {schedule.status === 'done' ? <AnimatedCheck size={16} /> : <div className="w-4 h-4 rounded-full border-2 border-current opacity-50" />}
+                            {schedule.status === 'done' ? 'Đã xong' : 'Đánh dấu xong'}
+                            {showConfettiFor === schedule.id && <MiniConfetti onComplete={() => setShowConfettiFor(null)} />}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   );

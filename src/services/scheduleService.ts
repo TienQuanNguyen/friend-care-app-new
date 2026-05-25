@@ -10,7 +10,7 @@ export const scheduleService = {
       
     if (error) {
       console.error('Error fetching schedules:', error);
-      return [];
+      throw error;
     }
     return data || [];
   },
@@ -24,7 +24,7 @@ export const scheduleService = {
       
     if (error) {
       console.error('Error adding schedule:', error);
-      return null;
+      throw error;
     }
     return data;
   },
@@ -39,7 +39,7 @@ export const scheduleService = {
       
     if (error) {
       console.error('Error updating schedule:', error);
-      return null;
+      throw error;
     }
     return data;
   }

@@ -8,6 +8,10 @@ import { foodService } from '../services/foodService';
 import { FoodPlace, FoodStatus } from '../types';
 import { MapPin, Utensils, CheckCircle2, Circle, ExternalLink, X, Trash2, Edit2, Save } from 'lucide-react';
 import { getAutofilledImageUrl } from '../utils/foodImageHelper';
+import { Skeleton } from '../components/ui/Skeleton';
+import { AnimatedCheck } from '../components/ui/AnimatedCheck';
+import { MiniConfetti } from '../components/ui/MiniConfetti';
+import { RandomFoodPicker } from '../components/ui/RandomFoodPicker';
 
 const DISTRICTS = ["Quận 1", "Quận 3", "Quận 4", "Quận 5", "Quận 7", "Quận 10", "Bình Thạnh", "Phú Nhuận", "Tân Bình", "Gò Vấp", "Thủ Đức", "Khác"];
 const CATEGORIES = ["Lẩu", "Nướng", "Trà sữa", "Cafe", "Bánh ngọt", "Ăn vặt", "Món Việt", "Món Hàn", "Món Nhật", "Món Âu", "Khác"];
@@ -19,6 +23,10 @@ export const FoodPlaces = () => {
   const [isAdding, setIsAdding] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<FoodPlace | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [error, setError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showConfettiFor, setShowConfettiFor] = useState<string | null>(null);
   
   // Filter state
   const [filterDistrict, setFilterDistrict] = useState<string>('Tất cả');
@@ -41,8 +49,13 @@ export const FoodPlaces = () => {
   }, []);
 
   const loadPlaces = async () => {
-    const data = await foodService.getPlaces();
-    setPlaces(data);
+    setIsLoading(true);
+    try {
+      const data = await foodService.getPlaces();
+      setPlaces(data);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resetForm = () => {
@@ -62,49 +75,60 @@ export const FoodPlaces = () => {
     e.preventDefault();
     if (!foodName || !user || !careSpace) return;
 
+    setError('');
+    setIsSubmitting(true);
     const finalImageUrl = getAutofilledImageUrl(foodName, category, imageUrl);
 
-    if (editingId) {
-      await foodService.updatePlace(editingId, {
-        food_name: foodName,
-        restaurant_name: restaurantName,
-        district,
-        address,
-        location_note: locationNote,
-        google_maps_url: googleMapsUrl,
-        category,
-        cuisine_type: category,
-        status: tried ? 'tried' : 'want_to_try',
-        tried,
-        image_url: finalImageUrl,
-        image_source: imageUrl.trim() ? 'url' : 'svg_generated',
-        note
-      });
-      setEditingId(null);
-    } else {
-      await foodService.addPlace({
-        care_space_id: careSpace.id,
-        created_by: user.id,
-        food_name: foodName,
-        restaurant_name: restaurantName,
-        district,
-        address,
-        location_note: locationNote,
-        google_maps_url: googleMapsUrl,
-        category,
-        cuisine_type: category,
-        priority: 3,
-        status: tried ? 'tried' : 'want_to_try',
-        tried,
-        image_url: finalImageUrl,
-        image_source: imageUrl.trim() ? 'url' : 'svg_generated',
-        note
-      });
-    }
+    try {
+      if (editingId) {
+        const result = await foodService.updatePlace(editingId, {
+          food_name: foodName,
+          restaurant_name: restaurantName,
+          district,
+          address,
+          location_note: locationNote,
+          google_maps_url: googleMapsUrl,
+          category,
+          cuisine_type: category,
+          status: tried ? 'tried' : 'want_to_try',
+          tried,
+          image_url: finalImageUrl,
+          image_source: imageUrl.trim() ? 'url' : 'svg_generated',
+          note
+        });
+        if (!result) throw new Error("Cập nhật thất bại. Vui lòng thử lại.");
+        setEditingId(null);
+      } else {
+        const result = await foodService.addPlace({
+          care_space_id: careSpace.id,
+          created_by: user.id,
+          food_name: foodName,
+          restaurant_name: restaurantName,
+          district,
+          address,
+          location_note: locationNote,
+          google_maps_url: googleMapsUrl,
+          category,
+          cuisine_type: category,
+          priority: 3,
+          status: tried ? 'tried' : 'want_to_try',
+          tried,
+          image_url: finalImageUrl,
+          image_source: imageUrl.trim() ? 'url' : 'svg_generated',
+          note
+        });
+        if (!result) throw new Error("Thêm thất bại. Vui lòng thử lại.");
+      }
 
-    resetForm();
-    setIsAdding(false);
-    loadPlaces();
+      resetForm();
+      setIsAdding(false);
+      loadPlaces();
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Đã xảy ra lỗi khi lưu.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEdit = (place: FoodPlace) => {
@@ -135,6 +159,9 @@ export const FoodPlaces = () => {
   const toggleTried = async (place: FoodPlace) => {
     const newStatus: FoodStatus = place.tried ? 'want_to_try' : 'tried';
     await foodService.updatePlace(place.id, { tried: !place.tried, status: newStatus });
+    if (!place.tried) {
+      setShowConfettiFor(place.id);
+    }
     loadPlaces();
   };
 
@@ -150,16 +177,32 @@ export const FoodPlaces = () => {
             Lưu lại những món ăn hấp dẫn để chúng mình cùng nhau thưởng thức nhé.
           </p>
         </div>
-        <Button 
-          onClick={() => setIsAdding(!isAdding)}
-          className={`px-6 py-2.5 rounded-pill font-bold shadow-sm transition-all ${
-            isAdding 
-              ? 'bg-canvas-ceramic text-text-main hover:bg-gray-100 border border-gray-200' 
-              : 'bg-brand text-white hover:bg-brand-accent'
-          }`}
-        >
-          {isAdding ? 'Hủy nhập' : '+ Thêm món ăn'}
-        </Button>
+        <div className="flex items-center gap-3">
+          {!isAdding && (
+            <RandomFoodPicker 
+              places={places.filter(place => {
+                const matchDistrict = filterDistrict === 'Tất cả' || place.district === filterDistrict;
+                const matchCategory = filterCategory === 'Tất cả' || place.category === filterCategory;
+                return matchDistrict && matchCategory;
+              })} 
+              onMarkAsTried={async (place) => {
+                if (!place.tried) {
+                  await toggleTried(place);
+                }
+              }} 
+            />
+          )}
+          <Button 
+            onClick={() => setIsAdding(!isAdding)}
+            className={`px-6 py-2.5 rounded-pill font-bold shadow-sm transition-all ${
+              isAdding 
+                ? 'bg-canvas-ceramic text-text-main hover:bg-gray-100 border border-gray-200' 
+                : 'bg-brand text-white hover:bg-brand-accent'
+            }`}
+          >
+            {isAdding ? 'Hủy nhập' : '+ Thêm món ăn'}
+          </Button>
+        </div>
       </div>
 
       {isAdding && (
@@ -169,7 +212,13 @@ export const FoodPlaces = () => {
               {editingId ? 'Chỉnh sửa món ngon' : 'Lưu món ngon mới'}
             </h2>
             
-            <div className="grid md:grid-cols-2 gap-8">
+            {error && (
+              <div className="p-3 mb-4 text-sm text-semantic-destructive bg-semantic-destructive/10 rounded-lg">
+                {error}
+              </div>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-4">
               {/* Left Column */}
               <div className="space-y-5">
                 <div>
@@ -317,11 +366,9 @@ export const FoodPlaces = () => {
             </div>
 
             <div className="flex justify-end gap-3 pt-6 border-t border-canvas-cool mt-6">
-              <Button type="button" onClick={() => { setIsAdding(false); resetForm(); setEditingId(null); }} className="bg-canvas-ceramic text-text-main hover:bg-gray-100 border border-gray-200">
-                Hủy bỏ
-              </Button>
-              <Button type="submit" className="bg-brand text-white hover:bg-brand-accent">
-                {editingId ? 'Cập nhật' : 'Lưu món ăn'}
+              <Button type="button" onClick={() => setIsAdding(false)} className="bg-canvas-ceramic text-text-main border border-gray-200">Hủy</Button>
+              <Button type="submit" className="bg-brand text-white hover:bg-brand-accent" disabled={isSubmitting}>
+                {isSubmitting ? 'Đang lưu...' : (editingId ? 'Cập nhật' : 'Lưu địa điểm')}
               </Button>
             </div>
           </form>
@@ -357,7 +404,15 @@ export const FoodPlaces = () => {
       )}
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {places.filter(place => {
+        {isLoading && (
+          <>
+            <Skeleton className="h-[24rem]" />
+            <Skeleton className="h-[24rem]" />
+            <Skeleton className="h-[24rem]" />
+          </>
+        )}
+        
+        {!isLoading && places.filter(place => {
           const matchDistrict = filterDistrict === 'Tất cả' || place.district === filterDistrict;
           const matchCategory = filterCategory === 'Tất cả' || place.category === filterCategory;
           return matchDistrict && matchCategory;
@@ -390,7 +445,7 @@ export const FoodPlaces = () => {
                 <span className={`text-xs font-bold px-3 py-1.5 rounded-pill shadow-sm backdrop-blur flex items-center gap-1.5 ${
                   place.tried ? 'bg-brand/90 text-white' : 'bg-white/90 text-text-soft'
                 }`}>
-                  {place.tried ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
+                  {place.tried ? <AnimatedCheck size={14} color="#fff" /> : null}
                   {place.tried ? 'Đã ăn' : 'Chưa ăn'}
                 </span>
               </div>
@@ -437,7 +492,10 @@ export const FoodPlaces = () => {
                   animate={{ scale: 1 }}
                   transition={{ type: 'spring', stiffness: 500, damping: 15 }}
                 >
-                  {place.tried ? 'Đánh dấu chưa ăn' : '✅ Đánh dấu đã ăn'}
+                  <div className="flex items-center justify-center gap-1.5 relative">
+                    {place.tried ? 'Đánh dấu chưa ăn' : 'Đánh dấu đã ăn'}
+                    {showConfettiFor === place.id && <MiniConfetti onComplete={() => setShowConfettiFor(null)} />}
+                  </div>
                 </motion.button>
                 {place.google_maps_url && (
                   <a 
@@ -458,8 +516,8 @@ export const FoodPlaces = () => {
           const matchDistrict = filterDistrict === 'Tất cả' || place.district === filterDistrict;
           const matchCategory = filterCategory === 'Tất cả' || place.category === filterCategory;
           return matchDistrict && matchCategory;
-        }).length === 0 && !isAdding && (
-          <div className="md:col-span-2 lg:grid-cols-3 text-center py-16 px-4">
+        }).length === 0 && !isAdding && !isLoading && (
+          <div className="md:col-span-2 lg:col-span-3 text-center py-16 px-4">
             <div className="bg-white rounded-card shadow-card max-w-md mx-auto p-8 border border-brand-light">
               <div className="w-16 h-16 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-4">
                 <Utensils className="w-8 h-8 text-brand" />
@@ -469,8 +527,8 @@ export const FoodPlaces = () => {
             </div>
           </div>
         )}
-        {places.length === 0 && !isAdding && (
-          <div className="md:col-span-2 lg:grid-cols-3 text-center py-16 px-4">
+        {!isLoading && places.length === 0 && !isAdding && (
+          <div className="md:col-span-2 lg:col-span-3 text-center py-16 px-4">
             <div className="bg-white rounded-card shadow-card max-w-md mx-auto p-8 border border-brand-light">
               <div className="w-16 h-16 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-4">
                 <Utensils className="w-8 h-8 text-brand-accent" />

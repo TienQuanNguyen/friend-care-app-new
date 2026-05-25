@@ -22,6 +22,8 @@ import {
   TableProperties, 
   LayoutGrid 
 } from 'lucide-react';
+import { Skeleton } from '../components/ui/Skeleton';
+import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 
 const MOODS_WITH_ICONS: { name: MoodType; icon: React.ComponentType<{ className?: string }> }[] = [
   { name: 'Hạnh phúc', icon: Sparkles },
@@ -109,15 +111,23 @@ export const MoodJournal = () => {
   const [note, setNote] = useState('');
   const [gratitude, setGratitude] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const [generatedAdvice, setGeneratedAdvice] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
     loadEntries();
   }, []);
 
   const loadEntries = async () => {
-    const data = await moodService.getEntries();
-    setEntries(data);
+    setIsLoading(true);
+    try {
+      const data = await moodService.getEntries();
+      setEntries(data);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getProfile = (userId: string) => {
@@ -128,6 +138,7 @@ export const MoodJournal = () => {
     e.preventDefault();
     if (!selectedMood || !user || !careSpace) return;
     
+    setError('');
     setIsSubmitting(true);
     let advice = '';
 
@@ -146,7 +157,7 @@ export const MoodJournal = () => {
     }
 
     try {
-      await moodService.addEntry({
+      const result = await moodService.addEntry({
         care_space_id: careSpace.id,
         created_by: user.id,
         mood: selectedMood,
@@ -157,14 +168,19 @@ export const MoodJournal = () => {
         entry_date: format(new Date(), 'yyyy-MM-dd')
       });
       
+      if (!result) throw new Error("Lưu nhật ký thất bại.");
+      
       setSelectedMood('');
       setEnergyLevel(5);
       setNote('');
       setGratitude('');
       loadEntries();
       setIsFormOpen(false); // Close form after saving
-    } catch (err) {
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+    } catch (err: any) {
       console.error(err);
+      setError(err.message || "Đã xảy ra lỗi khi lưu nhật ký.");
     } finally {
       setIsSubmitting(false);
     }
@@ -198,6 +214,12 @@ export const MoodJournal = () => {
             <h2 className="font-bold text-xl text-text-main border-b border-canvas-cool pb-4 flex items-center gap-2">
               Trang viết mới ✨
             </h2>
+
+            {error && (
+              <div className="p-3 mb-2 text-sm text-semantic-destructive bg-semantic-destructive/10 rounded-lg">
+                {error}
+              </div>
+            )}
 
             {/* Section 1: Tâm trạng hiện tại */}
             <div className="space-y-3">
@@ -299,9 +321,10 @@ export const MoodJournal = () => {
               <Button 
                 type="submit" 
                 disabled={!selectedMood || isSubmitting}
-                className="bg-brand text-white hover:bg-brand-accent rounded-pill px-6 font-bold"
+                className="bg-brand text-white hover:bg-brand-accent rounded-pill px-6 font-bold flex items-center gap-2"
               >
                 {isSubmitting ? 'Đang gửi...' : 'Lưu vào nhật ký'}
+                {showSuccess && <AnimatedCheck size={16} color="#fff" />}
               </Button>
             </div>
           </form>
@@ -364,7 +387,12 @@ export const MoodJournal = () => {
           </div>
         </div>
 
-        {entries.length === 0 ? (
+        {isLoading ? (
+          <div className="grid md:grid-cols-2 gap-6">
+            <Skeleton className="h-[280px]" />
+            <Skeleton className="h-[280px]" />
+          </div>
+        ) : entries.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-card border border-brand-light">
             <Smile className="w-12 h-12 text-brand-light mx-auto mb-3" />
             <p className="text-text-soft text-sm">Chưa có ghi chép nào của hai bạn.</p>

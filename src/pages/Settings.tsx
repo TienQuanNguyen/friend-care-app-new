@@ -3,8 +3,9 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { useCareSpace } from '../contexts/CareSpaceContext';
-import { LogOut, Copy, Users, Smile, Check } from 'lucide-react';
+import { LogOut, Copy, Users, Smile, Check, UserCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Input } from '../components/ui/Input';
 
 const AVATAR_OPTIONS = [
   { icon: '📷', label: 'Camera' },
@@ -27,9 +28,11 @@ const AVATAR_OPTIONS = [
 
 export const Settings = () => {
   const { user, logout } = useAuth();
-  const { careSpace, profiles, updateProfileAvatar } = useCareSpace();
+  const { careSpace, profiles, updateProfileAvatar, updateProfileName } = useCareSpace();
   const myProfile = profiles.find(p => p.user_id === user?.id) || profiles[0];
   const [selectedAvatar, setSelectedAvatar] = React.useState(myProfile?.avatar_emoji || '🐱');
+  const [editingName, setEditingName] = React.useState(myProfile?.display_name || '');
+  const [isSavingName, setIsSavingName] = React.useState(false);
 
   const handleAvatarChange = (icon: string) => {
     setSelectedAvatar(icon);
@@ -40,6 +43,19 @@ export const Settings = () => {
     if (careSpace?.invite_code) {
       navigator.clipboard.writeText(careSpace.invite_code);
       alert('Đã copy mã mời!');
+    }
+  };
+
+  const handleSaveName = async () => {
+    if (!editingName.trim() || editingName.trim() === myProfile?.display_name) return;
+    try {
+      setIsSavingName(true);
+      await updateProfileName(editingName.trim());
+      alert('Đã cập nhật tên thành công!');
+    } catch (error) {
+      alert('Cập nhật tên thất bại. Vui lòng thử lại.');
+    } finally {
+      setIsSavingName(false);
     }
   };
 
@@ -87,6 +103,32 @@ export const Settings = () => {
               </span>
             </div>
           ))}
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="text-xl font-bold text-brand mb-4 flex items-center gap-2">
+          <UserCircle className="w-5 h-5" />
+          Tên hiển thị
+        </h2>
+        <div className="pt-2">
+          <p className="text-sm text-text-soft mb-4">Thay đổi tên gọi của bạn trong không gian này.</p>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <Input 
+                value={editingName} 
+                onChange={(e) => setEditingName(e.target.value)} 
+                placeholder="Nhập tên mới..."
+              />
+            </div>
+            <Button 
+              onClick={handleSaveName} 
+              disabled={!editingName.trim() || editingName.trim() === myProfile?.display_name || isSavingName}
+              className="bg-brand text-white shrink-0"
+            >
+              {isSavingName ? 'Đang lưu...' : 'Cập nhật tên'}
+            </Button>
+          </div>
         </div>
       </Card>
 

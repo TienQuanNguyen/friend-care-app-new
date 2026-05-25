@@ -10,7 +10,7 @@ export const foodService = {
       
     if (error) {
       console.error('Error fetching food places:', error);
-      return [];
+      throw error;
     }
     return data || [];
   },
@@ -24,7 +24,7 @@ export const foodService = {
       
     if (error) {
       console.error('Error adding food place:', error);
-      return null;
+      throw error;
     }
     return data;
   },
@@ -39,7 +39,7 @@ export const foodService = {
       
     if (error) {
       console.error('Error updating food place:', error);
-      return null;
+      throw error;
     }
     return data;
   },
@@ -52,7 +52,7 @@ export const foodService = {
       
     if (error) {
       console.error('Error deleting food place:', error);
-      return false;
+      throw error;
     }
     return true;
   }

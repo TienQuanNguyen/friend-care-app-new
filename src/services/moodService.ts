@@ -10,7 +10,7 @@ export const moodService = {
       
     if (error) {
       console.error('Error fetching mood entries:', error);
-      return [];
+      throw error;
     }
     return data || [];
   },
@@ -24,7 +24,7 @@ export const moodService = {
       
     if (error) {
       console.error('Error adding mood entry:', error);
-      return null;
+      throw error;
     }
     return data;
   }

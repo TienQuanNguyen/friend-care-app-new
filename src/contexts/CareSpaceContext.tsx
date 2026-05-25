@@ -10,6 +10,7 @@ interface CareSpaceContextType {
   joinSpace: (code: string) => Promise<void>;
   createSpace: (name: string, defaultAvatar?: string) => Promise<void>;
   updateProfileAvatar: (emoji: string) => Promise<void>;
+  updateProfileName: (name: string) => Promise<void>;
 }
 
 const CareSpaceContext = createContext<CareSpaceContextType | undefined>(undefined);
@@ -57,6 +58,9 @@ export const CareSpaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           
         if (spaceError) throw spaceError;
         setCareSpace(spaceData);
+        if (spaceData?.invite_code) {
+          localStorage.setItem('friendcare_last_invite_code', spaceData.invite_code);
+        }
 
         // Load all profiles in the space
         const { data: allProfiles, error: allProfilesError } = await supabase
@@ -80,11 +84,9 @@ export const CareSpaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const joinSpace = async (code: string) => {
     if (!user) return;
     
-    // Find the space by code
+    // Find the space by code (using an RPC function to bypass RLS read restrictions for new users)
     const { data: space, error: spaceError } = await supabase
-      .from('care_spaces')
-      .select('*')
-      .eq('invite_code', code)
+      .rpc('get_space_by_invite_code', { code_param: code })
       .maybeSingle();
       
     if (spaceError) throw spaceError;
@@ -95,13 +97,13 @@ export const CareSpaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     
     const { error: profileError } = await supabase
       .from('profiles')
-      .insert({
+      .upsert({
         user_id: user.id,
         care_space_id: space.id,
         display_name: user.email.split('@')[0],
         avatar_emoji: savedAvatar,
         role: 'member'
-      });
+      }, { onConflict: 'user_id' });
       
     if (profileError) throw profileError;
     
@@ -132,13 +134,13 @@ export const CareSpaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     
     const { error: profileError } = await supabase
       .from('profiles')
-      .insert({
+      .upsert({
         user_id: user.id,
         care_space_id: space.id,
         display_name: user.email.split('@')[0],
         avatar_emoji: savedAvatar,
         role: 'admin'
-      });
+      }, { onConflict: 'user_id' });
       
     if (profileError) throw profileError;
     
@@ -166,8 +168,36 @@ export const CareSpaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     ));
   };
 
+  const updateProfileName = async (name: string) => {
+    if (!user) return;
+    
+    const { error } = await supabase
+      .from('profiles')
+      .update({ display_name: name })
+      .eq('user_id', user.id);
+      
+    if (error) {
+      console.error('Error updating name:', error);
+      throw error;
+    }
+    
+    // Optimistic update
+    setProfiles(prev => prev.map(p => 
+      p.user_id === user.id ? { ...p, display_name: name } : p
+    ));
+  };
+
   return (
-    <CareSpaceContext.Provider value={{ careSpace, profiles, loading, joinSpace, createSpace, updateProfileAvatar }}>
+    <CareSpaceContext.Provider value={{
+        careSpace,
+        profiles,
+        loading,
+        joinSpace,
+        createSpace,
+        updateProfileAvatar,
+        updateProfileName,
+      }}
+    >
       {children}
     </CareSpaceContext.Provider>
   );

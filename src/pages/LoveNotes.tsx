@@ -8,12 +8,17 @@ import { LoveNote } from '../types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Heart, Flame, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Skeleton } from '../components/ui/Skeleton';
+import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 
 export const LoveNotes = () => {
   const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
   const [notes, setNotes] = useState<LoveNote[]>([]);
   const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // Local Mock State for Check-ins
   const [isCheckedIn, setIsCheckedIn] = useState(false);
@@ -31,8 +36,13 @@ export const LoveNotes = () => {
   }, []);
 
   const loadNotes = async () => {
-    const data = await loveNoteService.getNotes();
-    setNotes(data);
+    setIsLoading(true);
+    try {
+      const data = await loveNoteService.getNotes();
+      setNotes(data);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCheckIn = () => {
@@ -46,15 +56,22 @@ export const LoveNotes = () => {
   const handleSubmitNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message || !user || !careSpace) return;
+    
+    setIsSubmitting(true);
+    try {
+      await loveNoteService.addNote({
+        care_space_id: careSpace.id,
+        created_by: user.id,
+        message,
+      });
 
-    await loveNoteService.addNote({
-      care_space_id: careSpace.id,
-      created_by: user.id,
-      message,
-    });
-
-    setMessage('');
-    loadNotes();
+      setMessage('');
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+      loadNotes();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getProfile = (userId: string) => {
@@ -163,14 +180,23 @@ export const LoveNotes = () => {
               />
             </div>
             <div className="flex justify-end pt-2">
-              <Button type="submit" className="bg-brand text-white hover:bg-brand-accent rounded-pill">Gửi lời nhắn</Button>
+              <Button type="submit" disabled={!message || isSubmitting} className="bg-brand text-white hover:bg-brand-accent rounded-pill flex items-center gap-2">
+                {isSubmitting ? 'Đang gửi...' : 'Gửi lời nhắn'}
+                {showSuccess && <AnimatedCheck size={16} color="#fff" />}
+              </Button>
             </div>
           </form>
         </Card>
 
         {/* Notes List */}
         <div className="space-y-4">
-          {notes.map((note) => {
+          {isLoading ? (
+            <>
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+            </>
+          ) : notes.map((note) => {
             const profile = getProfile(note.created_by);
             return (
               <Card key={note.id} className="relative overflow-hidden group border-none shadow-nav hover:shadow-frap-ambient transition-all bg-white p-5 rounded-2xl">
@@ -196,7 +222,7 @@ export const LoveNotes = () => {
               </Card>
             );
           })}
-          {notes.length === 0 && (
+          {!isLoading && notes.length === 0 && (
             <div className="text-center py-12 px-4 border border-dashed border-gray-200 rounded-2xl bg-white/50">
               <Heart className="w-8 h-8 text-brand-light mx-auto mb-3" />
               <p className="text-text-soft text-sm">Chưa có lời nhắn nào. Hãy gửi lời yêu thương đầu tiên nhé.</p>
