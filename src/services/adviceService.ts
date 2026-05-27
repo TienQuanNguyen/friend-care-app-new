@@ -1,3 +1,5 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
 export interface AdviceRequest {
   type: string;
   mood: string;
@@ -8,139 +10,205 @@ export interface AdviceRequest {
 
 export const adviceService = {
   async getAdvice(request: AdviceRequest): Promise<string> {
-    // Simulate a short processing delay
-    await new Promise(resolve => setTimeout(resolve, 800));
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    
+    // Nếu không có API Key, dùng bộ não dự phòng
+    if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+      console.warn('No valid Gemini API key found, using fallback advice generator.');
+      return this.getFallbackAdvice(request);
+    }
 
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+      const prompt = `
+Bạn là một người bạn tri kỷ, một chuyên gia tâm lý vô cùng tinh tế, ấm áp và thấu cảm.
+Người dùng vừa ghi lại nhật ký cảm xúc hôm nay với các thông tin sau:
+- Tâm trạng: ${request.mood}
+- Mức năng lượng cơ thể: ${request.energy_level}/10 (1 là cạn kiệt, 10 là tràn đầy)
+- Điều khiến họ thấy vậy (câu chuyện thực tế): "${request.note || 'Không chia sẻ gì thêm'}"
+- Điều họ biết ơn hôm nay: "${request.gratitude || 'Không chia sẻ gì thêm'}"
+
+Hãy viết một phản hồi ngắn (từ 7 đến 12 câu) phản hồi lại nhật ký này.
+YÊU CẦU BẮT BUỘC:
+1. Tuyệt đối KHÔNG chào hỏi kiểu "Chào bạn", KHÔNG tự xưng là "AI" hay "trợ lý ảo". Hãy bắt đầu ngay vào nội dung. Xưng "tôi" và gọi là "bạn" một cách chân thành.
+2. TẬP TRUNG vào nội dung câu chuyện trong phần "Điều khiến họ thấy vậy". Lắng nghe sâu sắc, phân tích nhẹ nhàng và xác nhận cảm xúc của họ là hoàn toàn chính đáng.
+3. Nếu câu chuyện buồn/áp lực: Đưa ra lời an ủi, thấu cảm, khuyên họ nghỉ ngơi. Nếu năng lượng thấp (<4), hãy nhấn mạnh việc bảo vệ cơ thể.
+4. Nếu câu chuyện vui: Cùng chung vui và khích lệ họ giữ gìn nguồn năng lượng này.
+5. Nếu họ có viết điều biết ơn, hãy khen ngợi thói quen tuyệt vời này ở cuối đoạn.
+6. Giọng văn phải CỰC KỲ tự nhiên, sâu lắng, chân thật, giống như lời một người bạn thân đang ngồi cạnh và vỗ vai người dùng.
+`;
+
+      const result = await model.generateContent(prompt);
+      return result.response.text().trim();
+    } catch (error) {
+      console.error('Error calling Gemini API:', error);
+      return this.getFallbackAdvice(request);
+    }
+  },
+
+  getFallbackAdvice(request: AdviceRequest): string {
     const { mood, energy_level, note, gratitude } = request;
+    const sentences: string[] = [];
 
-    const energyNote = energy_level <= 3
-      ? 'Năng lượng của bạn hôm nay đang rất thấp, điều đó hoàn toàn bình thường và có lý do riêng của nó.'
-      : energy_level <= 6
-      ? 'Mức năng lượng của bạn đang ở mức vừa phải, không quá cao cũng không quá thấp.'
-      : 'Bạn đang có một nguồn năng lượng khá tốt hôm nay, đó là điều tuyệt vời.';
-
-    const noteRef = note
-      ? `Bạn chia sẻ rằng: "${note.slice(0, 60)}${note.length > 60 ? '…' : ''}" — điều đó thực sự được lắng nghe và trân trọng.`
-      : '';
-
-    const gratitudeRef = gratitude
-      ? `Việc bạn nhận ra điều biết ơn — "${gratitude.slice(0, 50)}${gratitude.length > 50 ? '…' : ''}" — là một hành động rất đẹp của tâm hồn.`
-      : '';
-
+    // 1. Acknowledge the mood
     switch (mood) {
       case 'Buồn bã':
-        return [
-          'Hôm nay có vẻ là một ngày nặng nề với bạn, và điều đó hoàn toàn được phép.',
-          'Nỗi buồn không phải là dấu hiệu của yếu đuối — nó là bằng chứng rằng bạn đang cảm nhận cuộc sống một cách chân thật.',
-          energyNote,
-          noteRef,
-          'Đôi khi tâm trí chúng ta cần được khóc, cần được nghỉ ngơi, cần được buông lơi một chút.',
-          'Hãy thử tìm một góc nhỏ yên tĩnh, một cốc trà ấm, hoặc một bài nhạc nhẹ nhàng mà bạn yêu thích.',
-          'Đừng cố gắng che giấu hay vội vã xua đuổi nỗi buồn này — hãy ngồi bên cạnh nó như người bạn cũ.',
-          gratitudeRef,
-          'Ngay cả trong những ngày u ám nhất, vẫn có những điều nhỏ bé đáng quý xung quanh bạn.',
-          'Nếu có thể, hãy nhắn một tin nhắn nhỏ cho người bạn quan tâm — đôi khi chỉ cần biết họ đang ở đây thôi đã đủ.',
-          'Bạn không cần phải ổn ngay lập tức. Chỉ cần thở, và biết rằng hôm nay rồi cũng sẽ qua đi.',
-        ].filter(Boolean).join(' ');
-
+        sentences.push(
+          'Hôm nay dường như là một ngày chất chứa nhiều nỗi niềm với bạn.',
+          'Nỗi buồn không phải là sự yếu đuối, nó chỉ là một khoảng lặng cần thiết để trái tim được nghỉ ngơi sau chuỗi ngày gồng gánh.',
+          'Bạn không cần phải vội vã tỏ ra mình ổn, cứ cho phép bản thân được buồn và chậm lại một chút cũng không sao.'
+        );
+        break;
       case 'Căng thẳng':
-        return [
-          'Có rất nhiều thứ đang đổ lên vai bạn, và cơ thể cũng như tâm trí bạn đang phải gánh chịu áp lực đó.',
-          energyNote,
-          noteRef,
-          'Khi mọi thứ trở nên quá tải, bản năng của chúng ta thường là cố thêm — nhưng đôi khi điều thông minh nhất là dừng lại.',
-          'Hãy thử hít thở sâu ba lần: hít vào đếm bốn, giữ đếm bốn, thở ra đếm sáu. Cơ thể sẽ cảm ơn bạn.',
-          'Căng thẳng thường đến từ việc chúng ta cố kiểm soát những thứ không hoàn toàn trong tầm tay.',
-          'Hãy viết ra những việc bạn đang lo — rồi gạch ra những thứ ngoài tầm kiểm soát của bạn hôm nay.',
-          gratitudeRef,
-          'Bạn đã làm rất nhiều rồi. Đừng so sánh tiến độ của mình với người khác — bạn đang đi con đường của riêng mình.',
-          'Tối nay, hãy cho phép bản thân được nghỉ ngơi thật sự, dù chỉ 30 phút không nghĩ đến công việc.',
-          'Nhớ rằng: bạn không cần phải hoàn hảo để xứng đáng được nghỉ ngơi.',
-        ].filter(Boolean).join(' ');
-
+        sentences.push(
+          'Tôi có thể cảm nhận được áp lực vô hình đang đè nặng lên vai và tâm trí bạn lúc này.',
+          'Khi mọi thứ trở nên quá tải, bản năng của chúng ta thường là cố thêm chút nữa, nhưng thực ra điều bạn cần nhất bây giờ là một sự tạm dừng.',
+          'Bạn đã rất kiên cường rồi, đừng ép bản thân phải giải quyết mọi thứ ngay lập tức.'
+        );
+        break;
       case 'Mệt mỏi':
-        return [
-          'Cơ thể và tâm hồn bạn đang lên tiếng — và lần này hãy thực sự lắng nghe chúng.',
-          energyNote,
-          noteRef,
-          'Mệt mỏi không chỉ là thiếu ngủ — đôi khi đó là dấu hiệu của một tâm trí đã phải làm việc quá sức trong thời gian dài.',
-          'Hãy tự hỏi: gần đây bạn có thực sự nghỉ ngơi chưa, hay chỉ đang tạm dừng giữa những công việc?',
-          'Hãy cố gắng đi ngủ sớm hơn 30 phút tối nay — không có màn hình, không có thông báo.',
-          'Nếu có thể, hãy ăn một bữa thật ngon và uống đủ nước hôm nay.',
-          gratitudeRef,
-          'Đôi khi sự mệt mỏi cũng là dấu hiệu bạn đang trưởng thành và đang làm nhiều điều ý nghĩa hơn.',
-          'Hãy cho phép bản thân được làm ít hơn một chút hôm nay, mà không cảm thấy có lỗi.',
-          'Bạn xứng đáng được chăm sóc — không phải chỉ sau khi hoàn thành mọi việc, mà ngay bây giờ.',
-        ].filter(Boolean).join(' ');
-
+        sentences.push(
+          'Cơ thể và tâm hồn bạn đang lên tiếng một cách rõ ràng rằng chúng cần được sạc lại.',
+          'Sự mệt mỏi này không chỉ đến từ thể chất, mà đôi khi là sự bào mòn của việc phải suy nghĩ quá nhiều trong thời gian dài.',
+          'Hôm nay, ưu tiên số một của bạn không phải là công việc, mà là chính bản thân bạn.'
+        );
+        break;
       case 'Nhớ người ấy':
-        return [
-          'Nỗi nhớ là một trong những cảm xúc đẹp nhất và cũng đau nhất của con người.',
-          energyNote,
-          noteRef,
-          'Khi nhớ ai đó, chúng ta thực ra đang mang họ theo bên cạnh mình — dù khoảng cách có xa đến đâu.',
-          'Hãy thử nhắn một tin nhắn nhỏ — một câu đơn giản thôi, không cần phải hoàn hảo.',
-          'Hoặc nếu chưa muốn nhắn, hãy viết ra những điều bạn nhớ về họ vào nhật ký hôm nay.',
-          gratitudeRef,
-          'Tình cảm thật sự không cần phải được nói thành lời mỗi giây — đôi khi chỉ cần nghĩ đến nhau đã là sự kết nối.',
-          'Trong khoảng thời gian nhớ nhau này, hãy chăm sóc bản thân thật tốt — vì người ấy cũng muốn bạn được ổn.',
-          'Bạn không cô đơn trong nỗi nhớ này. Và họ đang ở đó, dù không phải ngay bên cạnh.',
-          'Khoảng cách chỉ làm cho sự gặp lại trở nên đáng trân trọng hơn mà thôi.',
-        ].filter(Boolean).join(' ');
-
+        sentences.push(
+          'Nỗi nhớ là một thứ tình cảm rất đỗi xinh đẹp nhưng cũng mang lại những chông chênh khó tả.',
+          'Khi bạn nhớ một người, đó là minh chứng cho việc giữa hai người có một sự kết nối thật đặc biệt.',
+          'Dù khoảng cách có là bao xa, tình cảm chân thật luôn có cách để neo giữ hai trái tim lại gần nhau.'
+        );
+        break;
       case 'Hạnh phúc':
-        return [
-          'Thật tuyệt vời khi thấy bạn đang hạnh phúc hôm nay! Hãy tận hưởng trọn vẹn khoảnh khắc này.',
-          energyNote,
-          noteRef,
-          'Hạnh phúc không phải lúc nào cũng phải là điều to lớn — đôi khi chỉ là một buổi sáng nhẹ nhàng, một nụ cười, hay một điều nhỏ bé đẹp đẽ.',
-          'Hãy lưu giữ cảm giác này — viết ra hoặc ghi lại trong album kỷ niệm, để những ngày không vui hơn bạn có thể nhìn lại.',
-          gratitudeRef,
-          'Hãy chia sẻ niềm vui này với người bạn quan tâm — hạnh phúc nhân đôi khi được chia sẻ.',
-          'Những khoảnh khắc hạnh phúc như hôm nay là lý do để chúng ta tiếp tục yêu cuộc sống.',
-          'Cảm ơn bạn vì đã ghi lại điều này — mỗi khoảnh khắc vui đều xứng đáng được nhớ đến.',
-          'Mong bạn giữ được nguồn năng lượng tích cực này thật lâu.',
-        ].filter(Boolean).join(' ');
-
+        sentences.push(
+          'Thật tuyệt vời khi được chứng kiến nguồn năng lượng rạng rỡ và hạnh phúc này từ bạn!',
+          'Hạnh phúc đôi khi không phải là điều gì quá to tát, mà là khả năng cảm nhận được sự trọn vẹn trong khoảnh khắc hiện tại.',
+          'Bạn hoàn toàn xứng đáng với những cảm xúc tuyệt vời này.'
+        );
+        break;
       case 'Bình yên':
-        return [
-          'Sự bình yên là một trong những điều quý giá nhất của tâm hồn — và hôm nay bạn đang có được nó.',
-          energyNote,
-          noteRef,
-          'Hãy hít thở thật sâu và cảm nhận sự tĩnh lặng này — không phải ai cũng dễ dàng có được những khoảnh khắc như vậy.',
-          'Bình yên không phải là vắng mặt của khó khăn, mà là cách chúng ta chọn phản ứng với chúng.',
-          gratitudeRef,
-          'Hãy dùng khoảng không gian yên tĩnh này để làm điều gì đó nuôi dưỡng tâm hồn — đọc sách, nghe nhạc, hay chỉ đơn giản là ngồi yên.',
-          'Đây cũng là lúc tốt để kết nối với người bạn quan tâm — không vì bất kỳ lý do cụ thể nào, chỉ là muốn ở bên nhau.',
-          'Mong bạn giữ được trạng thái bình yên này lâu nhất có thể.',
-          'Những ngày bình yên như hôm nay là những trang đẹp nhất trong cuốn nhật ký cuộc đời.',
-        ].filter(Boolean).join(' ');
-
+        sentences.push(
+          'Giữa cuộc sống hối hả, sự tĩnh lặng và bình yên mà bạn đang có thực sự là một món quà vô giá.',
+          'Bình yên không có nghĩa là cuộc đời vắng bóng khó khăn, mà là cách tâm trí bạn chọn để đối diện và an trú.',
+          'Hãy hít thở thật sâu để khắc ghi khoảnh khắc nhẹ nhàng này vào tâm trí nhé.'
+        );
+        break;
       case 'Phấn khích':
-        return [
-          'Wow — bạn đang tràn đầy năng lượng và phấn khích hôm nay! Đó là một điều tuyệt vời.',
-          energyNote,
-          noteRef,
-          'Hãy tận dụng nguồn nhiệt huyết này để làm những điều bạn đã trì hoãn từ lâu.',
-          'Nhưng cũng nhớ rằng: sự phấn khích cần được hướng đúng để không đốt cháy năng lượng một cách lãng phí.',
-          gratitudeRef,
-          'Hãy lên kế hoạch một điều thú vị cùng người bạn quan tâm — những kỷ niệm đẹp nhất thường được tạo ra trong những ngày như thế này.',
-          'Chia sẻ năng lượng tích cực này với những người xung quanh — nó có sức lan tỏa mạnh mẽ lắm đấy.',
-          'Ngay cả trong sự phấn khích, hãy nhớ chăm sóc cơ thể — uống đủ nước và đừng bỏ bữa nhé.',
-          'Cứ để ngọn lửa nhiệt huyết này cháy sáng — nhưng cũng biết lúc nào nên cho nó nghỉ ngơi.',
-        ].filter(Boolean).join(' ');
-
+        sentences.push(
+          'Wow, nguồn nhiệt huyết và sự hào hứng của bạn đang thực sự lan tỏa mạnh mẽ!',
+          'Đây là thời điểm vàng để bạn bắt tay vào những dự định hoặc những ý tưởng mà bạn đã ấp ủ từ lâu.',
+          'Cứ giữ vững ngọn lửa này, nó sẽ dẫn bạn đi được những quãng đường rất xa.'
+        );
+        break;
       default:
-        return [
-          'Mỗi ngày mang đến những cảm xúc khác nhau, và tất cả đều đáng được lắng nghe và trân trọng.',
-          energyNote,
-          noteRef,
-          'Việc ghi chép lại cảm xúc của mình là một cách rất đẹp để thấu hiểu bản thân sâu hơn.',
-          gratitudeRef,
-          'Hãy nhớ rằng bạn không cần phải luôn mạnh mẽ — đôi khi chỉ cần thành thật với chính mình là đủ.',
-          'Dù hôm nay thế nào, bạn vẫn đang làm rất tốt với những gì mình có.',
-          'Hãy đối xử thật dịu dàng với bản thân — như cách bạn đối xử với người bạn thân thiết nhất.',
-        ].filter(Boolean).join(' ');
+        sentences.push(
+          `Cảm xúc ${mood.toLowerCase()} của bạn rất tự nhiên và hoàn toàn đáng được trân trọng.`,
+          'Dù hôm nay mang màu sắc gì, việc bạn dám đối diện và gọi tên cảm xúc của mình đã là một bước tiến lớn.',
+          'Tôi luôn ở đây để lắng nghe và đồng hành cùng mọi rung động trong bạn.'
+        );
     }
+
+    // 2. Acknowledge energy level
+    if (energy_level <= 3) {
+      sentences.push(
+        'Nhìn vào mức năng lượng đang cạn kiệt, tôi biết bạn đã phải gắng gượng rất nhiều.',
+        'Xin đừng tự dằn vặt nếu hôm nay bạn không làm được việc gì to tát, việc bạn vẫn đang hít thở và tồn tại đã là một sự nỗ lực đáng khen rồi.'
+      );
+    } else if (energy_level >= 8) {
+      sentences.push(
+        'Nguồn thể lực và tinh thần dồi dào của bạn hôm nay thực sự đáng ngưỡng mộ.',
+        'Hãy tận dụng đà này để giải quyết những việc khó nhằn, hoặc đơn giản là tạo ra thêm nhiều kỷ niệm đẹp cho chính mình.'
+      );
+    } else {
+      sentences.push(
+        'Năng lượng của bạn đang giữ ở mức cân bằng, một nền tảng hoàn hảo để mọi thứ diễn ra êm thấm.',
+        'Sự bình ổn này giúp bạn có cái nhìn sáng suốt và phản ứng từ tốn hơn trước mọi chuyện xảy ra trong ngày.'
+      );
+    }
+
+    // 3. Deep dive into the Note
+    if (note && note.trim().length > 0) {
+      const lowerNote = note.toLowerCase();
+      
+      if (lowerNote.match(/(công việc|sếp|đồ án|deadline|chạy số|dự án|khách hàng|bài tập|thi cử|học tập)/)) {
+        sentences.push(
+          'Lắng nghe câu chuyện của bạn, tôi thực sự thấu hiểu được sức nặng của những áp lực và kỳ vọng đang bủa vây.',
+          'Cuồng quay của công việc và học tập đôi khi tước đi của chúng ta cả những khoảng trống nhỏ nhất để thở.',
+          'Nhưng bạn biết không, giá trị của con người bạn không được định đoạt chỉ bằng một dự án hay một con điểm.',
+          'Hãy thử lùi lại một bước, tạm gập màn hình lại 15 phút, nhắm mắt lại để tâm trí mình được giãn ra đôi chút.',
+          'Mọi thứ rồi sẽ được giải quyết từng bước một, miễn là bạn không tự dồn bản thân vào chân tường.'
+        );
+      } else if (lowerNote.match(/(mệt mỏi|ốm|bệnh|đau|mất ngủ|thức khuya|buồn ngủ)/)) {
+        sentences.push(
+          'Đọc những dòng này, tôi thấy rất thương cho cơ thể đang phải chịu đựng những rệu rã của bạn.',
+          'Chúng ta thường vô tình đối xử tệ với cơ thể mình nhất bằng việc ép nó thức khuya hay làm việc quá sức.',
+          'Bạn ạ, sức khỏe là ranh giới cuối cùng không thể bị phá vỡ.',
+          'Ngay tối nay, tôi mong bạn hãy tạm gác lại mọi âu lo, tắm một vòng nước ấm và lên giường ngủ một giấc thật sâu.',
+          'Chỉ khi cơ thể khỏe mạnh, mọi nỗi buồn phiền mới có thể thực sự tan biến.'
+        );
+      } else if (lowerNote.match(/(cãi nhau|giận|bực mình|khó chịu|tức|mâu thuẫn)/)) {
+        sentences.push(
+          'Sự bực dọc và những mâu thuẫn đó chắc hẳn đã bòn rút của bạn quá nhiều năng lượng và sự bình yên.',
+          'Cảm giác ấm ức khi không được thấu hiểu luôn là một cục nghẹn rất khó nuốt trôi.',
+          'Bạn hoàn toàn có quyền tức giận, có quyền khóc hoặc xả ra hết những bức bối trong lòng.',
+          'Nhưng sau cơn bão cảm xúc ấy, hãy thử uống một ngụm nước, hít một hơi sâu và từ từ buông bỏ.',
+          'Đừng để lỗi lầm hay sự cố chấp của người khác tiếp tục trừng phạt bản thân bạn trong những giờ tiếp theo của ngày.'
+        );
+      } else if (lowerNote.match(/(người yêu|nhớ|người ấy|chia xa|yêu|thương)/)) {
+        sentences.push(
+          'Chuyện tình cảm luôn mang đến cho chúng ta những cung bậc cảm xúc phức tạp và đôi khi là cả sự yếu lòng.',
+          'Việc bạn dám thành thật với những rung động hay nỗi trăn trở của mình đã cho thấy bạn trân trọng mối quan hệ này đến nhường nào.',
+          'Đừng quá lo lắng về những khoảng lặng hay những khác biệt, vì đó là gia vị tự nhiên của bất kỳ tình yêu nào.',
+          'Nếu cần thiết, hãy cứ nhắn cho người ấy một tin nhắn chân thành nhất về cảm xúc của bạn.',
+          'Sự chân thành và dịu dàng luôn có sức mạnh chữa lành mọi khoảng cách.'
+        );
+      } else if (lowerNote.match(/(tiền|tài chính|nợ|lương|chi tiêu)/)) {
+        sentences.push(
+          'Tôi hoàn toàn đồng cảm với bạn, gánh nặng tài chính là một trong những áp lực thực tế và bào mòn tâm trí nhất.',
+          'Khi nghĩ về tiền bạc, tương lai thường hiện lên như một đám mây mù mịt khiến ta khó thở.',
+          'Thay vì để nỗi lo sợ nuốt chửng lấy mình, hãy thử ngồi xuống và vạch ra từng giải pháp nhỏ nhất.',
+          'Bạn không cần phải giải quyết bài toán lớn ngay hôm nay, chỉ cần biết mình sẽ bước bước tiếp theo như thế nào.',
+          'Mọi khó khăn vật chất rồi sẽ qua, điều quan trọng là bạn vẫn giữ được sự vững vàng trong tinh thần.'
+        );
+      } else if (lowerNote.match(/(gia đình|bố mẹ|anh chị)/)) {
+        sentences.push(
+          'Gia đình thường là nơi ta yêu thương nhất nhưng cũng là nơi dễ để lại cho ta những tổn thương sâu sắc nhất.',
+          'Những mâu thuẫn hay áp lực từ người thân luôn mang đến một cảm giác nặng nề không thể nói thành lời.',
+          'Bạn không có nghĩa vụ phải làm hài lòng tất cả mọi người, kể cả đó là gia đình.',
+          'Bất kể điều gì đang xảy ra, hãy cho phép mình lùi lại, tìm một không gian riêng tư để được là chính mình.',
+          'Sự bình yên của bạn mới là điều quan trọng nhất vào lúc này.'
+        );
+      } else if (lowerNote.match(/(vui|hạnh phúc|tuyệt vời|ngon|thành công|đạt được)/)) {
+        sentences.push(
+          'Những điều tích cực mà bạn vừa chia sẻ thực sự đã thắp sáng cả trang nhật ký này!',
+          'Tôi có thể cảm nhận rõ sự tự hào và niềm hân hoan lan tỏa qua từng câu chữ.',
+          'Bạn đã nỗ lực rất nhiều để có được khoảnh khắc trọn vẹn này, và bạn hoàn toàn xứng đáng với nó.',
+          'Hãy tự thưởng cho bản thân một món ăn ngon, một món quà nhỏ, hay đơn giản là một nụ cười thật tươi trước gương.',
+          'Mong rằng dư âm của niềm vui này sẽ theo bạn đi vào cả những ngày tháng sắp tới.'
+        );
+      } else {
+        // generic fallback for note
+        sentences.push(
+          'Việc bạn chọn cách viết ra câu chuyện này thay vì giữ chặt trong lòng đã là một phương pháp ôm ấp cảm xúc rất tuyệt vời.',
+          'Đôi khi cuộc sống ném cho chúng ta những tình huống không thể đoán trước, và chúng ta chỉ biết phản ứng lại bằng bản năng.',
+          'Dù chuyện gì đã xảy ra, bạn hãy nhớ rằng mọi trải nghiệm đều đang đắp bồi thêm cho bạn sự sâu sắc và thấu cảm.',
+          'Hãy luôn đối xử thật dịu dàng và khoan dung với chính mình trong mọi hoàn cảnh nhé.'
+        );
+      }
+    }
+
+    // 4. Acknowledge gratitude
+    if (gratitude && gratitude.trim().length > 0) {
+      sentences.push(
+        'Đặc biệt hơn, giữa những bộn bề của cuộc sống, bạn vẫn dừng lại để ghi nhận lòng biết ơn.',
+        `Việc trân trọng những điều nhỏ bé là một thói quen rất đẹp.`,
+        'Chính lòng biết ơn này sẽ như một ngọn đèn nhỏ, âm thầm soi sáng và sưởi ấm tâm hồn bạn qua những ngày u tối nhất.'
+      );
+    }
+
+    return sentences.join(' ');
   }
 };
