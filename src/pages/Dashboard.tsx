@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { motion, Variants } from 'framer-motion';
+import { motion, Variants, AnimatePresence } from 'framer-motion';
 import { Card } from '../components/ui/Card';
 import { useCareSpace } from '../contexts/CareSpaceContext';
-import { Smile, Calendar as CalendarIcon, Heart, Users, Flame, Utensils, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { Smile, Calendar as CalendarIcon, Heart, Users, Flame, Utensils, Image as ImageIcon, Sparkles, X } from 'lucide-react';
 import { moodService } from '../services/moodService';
 import { scheduleService } from '../services/scheduleService';
 import { foodService } from '../services/foodService';
@@ -33,6 +33,21 @@ export const Dashboard = () => {
   const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
   const [isSavingMood, setIsSavingMood] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+
+  // Welcome Modal state
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+
+  useEffect(() => {
+    const hasSeen = localStorage.getItem('friendcare_has_seen_welcome_son_duyen');
+    if (!hasSeen) {
+      setTimeout(() => setShowWelcomeModal(true), 500);
+    }
+  }, []);
+
+  const closeWelcomeModal = () => {
+    setShowWelcomeModal(false);
+    localStorage.setItem('friendcare_has_seen_welcome_son_duyen', 'true');
+  };
 
   useEffect(() => {
     moodService.getEntries().then(data => {
@@ -309,6 +324,48 @@ export const Dashboard = () => {
         </motion.div>
 
       </motion.div>
+
+      {/* Welcome Modal for Sơn Duyên */}
+      <AnimatePresence>
+        {showWelcomeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative"
+            >
+              <button
+                onClick={closeWelcomeModal}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 p-2 rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Sparkles className="w-8 h-8 text-brand-accent" />
+                </div>
+                <h2 className="text-2xl font-bold text-brand mb-2">Gửi Sơn Duyên!</h2>
+              </div>
+
+              <div className="space-y-4 text-text-main text-[15px] leading-relaxed mb-8">
+                <p>Chào Sơn Duyên - người đáng ghét trong cuộc đời t,</p>
+                <p>Hmmm không biết nói sao nữa nhưng sắp tới m về Việt Nam tạo viết ra một cái web nho nhỏ này và còn những thiếu xót (như tao v).</p>
+                <p>Mong m sẽ trải nghiệm tốt với 1 tháng này và có nhiều kỉ niệm tại Việt Nam heheee.</p>
+                <p className="font-bold text-brand-accent pt-2">Ghét m nhiều :)))<br />Tiến Quân</p>
+              </div>
+
+              <button
+                onClick={closeWelcomeModal}
+                className="w-full bg-brand text-white font-bold py-3 px-4 rounded-xl hover:bg-brand-accent transition-colors"
+              >
+                Bắt đầu trải nghiệm thôi!
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

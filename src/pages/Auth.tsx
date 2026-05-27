@@ -9,9 +9,11 @@ export const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegister, setIsRegister] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { login, register } = useAuth();
+  const [success, setSuccess] = useState('');
+  const { login, register, resetPassword } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -20,15 +22,20 @@ export const Auth = () => {
     
     setLoading(true);
     setError('');
+    setSuccess('');
     
     try {
-      if (isRegister) {
+      if (isForgotPassword) {
+        await resetPassword(email);
+        setSuccess('Link khôi phục mật khẩu đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến (hoặc thư rác).');
+      } else if (isRegister) {
         await register(email, password);
         // Supabase auto logins on successful signup
+        navigate('/onboarding');
       } else {
         await login(email, password);
+        navigate('/onboarding');
       }
-      navigate('/onboarding');
     } catch (err: any) {
       setError(err.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
     } finally {
@@ -50,6 +57,12 @@ export const Auth = () => {
           </div>
         )}
 
+        {success && (
+          <div className="mb-4 p-3 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg">
+            {success}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input 
             label="Email" 
@@ -58,27 +71,56 @@ export const Auth = () => {
             onChange={(e) => setEmail(e.target.value)}
             required 
           />
-          <Input 
-            label="Mật khẩu" 
-            type="password" 
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required 
-          />
+          {!isForgotPassword && (
+            <div>
+              <Input 
+                label="Mật khẩu" 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required 
+              />
+              {!isRegister && (
+                <div className="mt-2 text-right">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPassword(true);
+                      setError('');
+                      setSuccess('');
+                    }}
+                    className="text-xs text-brand hover:underline font-medium"
+                  >
+                    Quên mật khẩu?
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Đang xử lý...' : (isRegister ? 'Đăng ký' : 'Đăng nhập')}
+            {loading ? 'Đang xử lý...' : (isForgotPassword ? 'Gửi link khôi phục' : isRegister ? 'Đăng ký' : 'Đăng nhập')}
           </Button>
         </form>
 
         <div className="mt-6 text-center">
           <button 
+            type="button"
             onClick={() => {
-              setIsRegister(!isRegister);
+              if (isForgotPassword) {
+                setIsForgotPassword(false);
+              } else {
+                setIsRegister(!isRegister);
+              }
               setError('');
+              setSuccess('');
             }}
             className="text-brand-accent hover:underline text-sm font-semibold"
           >
-            {isRegister ? 'Đã có tài khoản? Đăng nhập' : 'Chưa có tài khoản? Đăng ký'}
+            {isForgotPassword 
+              ? 'Quay lại đăng nhập' 
+              : isRegister 
+                ? 'Đã có tài khoản? Đăng nhập' 
+                : 'Chưa có tài khoản? Đăng ký'}
           </button>
         </div>
       </Card>

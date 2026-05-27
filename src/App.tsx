@@ -13,6 +13,7 @@ import { Schedules } from './pages/Schedules';
 import { LoveNotes } from './pages/LoveNotes';
 import { Memories } from './pages/Memories';
 import { Settings } from './pages/Settings';
+import { UpdatePassword } from './pages/UpdatePassword';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
             
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Dashboard />} />
