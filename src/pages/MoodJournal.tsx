@@ -115,6 +115,16 @@ export const MoodJournal = () => {
   const [generatedAdvice, setGeneratedAdvice] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string) => {
+    setExpandedEntries(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
     loadEntries();
@@ -407,6 +417,9 @@ export const MoodJournal = () => {
                   const isCurrentUser = entry.created_by === user?.id;
                   const writerProfile = getProfile(entry.created_by);
                   
+                  const isExpanded = expandedEntries.has(entry.id);
+                  const isLongText = (entry.note?.length || 0) > 80 || (entry.gratitude?.length || 0) > 80 || (entry.ai_advice?.length || 0) > 120;
+
                   return (
                     <Card key={entry.id} className="bg-white border border-brand-light/35 shadow-card rounded-card flex flex-col justify-between hover:shadow-frap-ambient transition-all">
                       <div className="space-y-4">
@@ -440,7 +453,7 @@ export const MoodJournal = () => {
                         {entry.note && (
                           <div className="bg-canvas-cool/60 p-4 rounded-2xl border border-canvas-cool">
                             <span className="text-xs font-bold text-text-soft uppercase tracking-wider block mb-1">Cảm nhận</span>
-                            <p className="text-[14px] text-text-main leading-relaxed">{entry.note}</p>
+                            <p className={`text-[14px] text-text-main leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>{entry.note}</p>
                           </div>
                         )}
 
@@ -451,17 +464,28 @@ export const MoodJournal = () => {
                               <Heart className="w-3.5 h-3.5 text-brand fill-brand-light" />
                               Biết ơn
                             </span>
-                            <p className="text-[14px] text-text-main leading-relaxed">{entry.gratitude}</p>
+                            <p className={`text-[14px] text-text-main leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>{entry.gratitude}</p>
                           </div>
                         )}
                       </div>
 
-                      {/* AI Advice Block */}
-                      {entry.ai_advice && (
-                        <div className="mt-4 pt-4 border-t border-canvas-cool text-xs text-text-soft italic leading-relaxed">
-                          "{entry.ai_advice}"
-                        </div>
-                      )}
+                      <div className="mt-4 pt-4 border-t border-canvas-cool flex flex-col items-start">
+                        {/* AI Advice Block */}
+                        {entry.ai_advice && (
+                          <div className={`text-xs text-text-soft italic leading-relaxed ${isExpanded ? '' : 'line-clamp-3'}`}>
+                            "{entry.ai_advice}"
+                          </div>
+                        )}
+                        
+                        {isLongText && (
+                          <button 
+                            onClick={() => toggleExpand(entry.id)}
+                            className="mt-3 text-xs font-bold text-brand-accent hover:underline focus:outline-none"
+                          >
+                            {isExpanded ? 'Thu gọn' : 'Xem thêm'}
+                          </button>
+                        )}
+                      </div>
                     </Card>
                   );
                 })}

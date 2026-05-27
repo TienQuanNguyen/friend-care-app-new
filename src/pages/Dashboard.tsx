@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, Variants, AnimatePresence } from 'framer-motion';
 import { Card } from '../components/ui/Card';
 import { useCareSpace } from '../contexts/CareSpaceContext';
-import { Smile, Calendar as CalendarIcon, Heart, Users, Flame, Utensils, Image as ImageIcon, Sparkles, X } from 'lucide-react';
+import { Smile, Calendar as CalendarIcon, Heart, Users, Flame, Utensils, Image as ImageIcon, Sparkles, X, RefreshCw } from 'lucide-react';
 import { moodService } from '../services/moodService';
 import { scheduleService } from '../services/scheduleService';
 import { foodService } from '../services/foodService';
@@ -22,6 +22,33 @@ const fadeUp: Variants = {
   animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' as const } },
 };
 
+const DAILY_MESSAGES = [
+  "Tui thấy hôm nay trời khá dễ chịu, tự nhiên nghĩ chắc Duyên sẽ thích kiểu thời tiết này.",
+  "Nếu hôm nay có hơi nhiều việc, sd cứ xử lý từng chút một thôi, không cần gồng hết trong một lần.",
+  "Tui lưu lại vài món muốn thử vì nghĩ có món chắc Diên sẽ thấy hợp gu hơn tui.",
+  "Hôm nay nếu có đoạn nào mệt, mong bạn vẫn tìm được một khoảng nhỏ để thở ra nhẹ một chút.",
+  "Tự nhiên nhớ ra có lần bạn nói thích mấy ngày trời dịu dịu như vầy.",
+  "Không có gì đặc biệt đâu, chỉ là thấy app hơi trống nên để lại một dấu vết nhỏ.",
+  "Nếu hôm nay bạn mở app lúc đang mệt, coi như đây là lời nhắc: nghỉ vài phút cũng không sao.",
+  "Tui nghĩ có những ngày không cần quá năng suất, chỉ cần mình qua ngày ổn là được.",
+  "Hôm nay nếu có chuyện gì khó chịu, cứ để nó nằm gọn trong ngày hôm nay thôi, đừng mang hết sang ngày mai.",
+  "Tui thấy mấy điều nhỏ nhỏ đôi khi lại làm một ngày đỡ nặng hơn, nên để lại câu này ở đây.",
+  "Có vài ngày chỉ cần một tin nhắn nhỏ hoặc một ghi chú nhỏ là đủ thấy mình vẫn được nhớ tới.",
+  "Tui không có gì cần nhắc, chỉ muốn để lại một câu cho app bớt im lặng...",
+  "Hôm nay cứ chậm lại một chút cũng được, không phải lúc nào cũng cần chạy nhanh.",
+  "Tự nhiên nghĩ chắc nếu có một quán yên yên, tụi mình ngồi nói linh tinh cũng ổn.",
+  "Nếu hôm nay vui thì lưu lại một chút, còn nếu không vui thì cũng không cần ép mình phải ổn ngay.",
+  "Có những ngày không cần làm gì lớn, chỉ cần còn giữ được một chút bình tĩnh là tốt rồi.",
+  "Tình bạn diệu kỳ là khi chúng ta chấp nhận sự không hoàn hảo của nhau. Hãy cùng nhau tạo thêm những kỷ niệm đẹp nhé.",
+  "Nếu hôm nay buồn quá có thể rủ tao đi nhậu kkk",
+  "Tui để lại câu này như một cái gõ cửa nhẹ: bạn vẫn đang làm ổn hơn bạn nghĩ đó.",
+  "Nếu hôm nay bạn thấy hơi rối, thử chọn một việc nhỏ nhất để làm trước thôi.",
+  "Không cần trả lời gì đâu, đọc được thì coi như có người vừa ghé ngang không gian chung này.",
+  "Tình bạn diệu kỳ nhỉ, 10 năm qua vẫn ở đây bên, vẫn lắng nghe nhau, đôi lần trắc trở nhiều chút chút, ...",
+  "Hmmmmm, Sơn Duyên ngày mới dui nhe",
+  "Thấy Tiến Quân đẹp trai không? Có or Yes?"
+];
+
 export const Dashboard = () => {
   const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
@@ -36,8 +63,21 @@ export const Dashboard = () => {
 
   // Welcome Modal state
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [dailyMessage, setDailyMessage] = useState<string>('');
+
+  const pickRandomMessage = () => {
+    setDailyMessage(prev => {
+      let newMsg = '';
+      do {
+        newMsg = DAILY_MESSAGES[Math.floor(Math.random() * DAILY_MESSAGES.length)];
+      } while (newMsg === prev && DAILY_MESSAGES.length > 1);
+      return newMsg;
+    });
+  };
 
   useEffect(() => {
+    pickRandomMessage();
+    
     const hasSeen = localStorage.getItem('friendcare_has_seen_welcome_son_duyen');
     if (!hasSeen) {
       setTimeout(() => setShowWelcomeModal(true), 500);
@@ -143,10 +183,19 @@ export const Dashboard = () => {
             <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-md shrink-0">
               <Sparkles className="w-6 h-6 text-white" />
             </div>
-            <div>
-              <h3 className="text-lg font-bold mb-1 tracking-wide text-brand-light">Lời nhắn hôm nay</h3>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-lg font-bold tracking-wide text-brand-light">Lời nhắn hôm nay</h3>
+                <button 
+                  onClick={() => pickRandomMessage()} 
+                  className="p-1.5 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center text-brand-light hover:text-white"
+                  title="Đổi lời nhắn khác"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
               <p className="text-white/90 text-sm leading-relaxed font-medium">
-                "Tình bạn diệu kỳ là khi chúng ta chấp nhận sự không hoàn hảo của nhau. Hãy cùng nhau tạo thêm những kỷ niệm đẹp nhé."
+                "{dailyMessage}"
               </p>
             </div>
           </div>
@@ -352,8 +401,8 @@ export const Dashboard = () => {
               <div className="space-y-4 text-text-main text-[15px] leading-relaxed mb-8">
                 <p>Chào Sơn Duyên - người đáng ghét trong cuộc đời t,</p>
                 <p>Hmmm không biết nói sao nữa nhưng sắp tới m về Việt Nam tạo viết ra một cái web nho nhỏ này và còn những thiếu xót (như tao v).</p>
-                <p>Mong m sẽ trải nghiệm tốt với 1 tháng này và có nhiều kỉ niệm tại Việt Nam heheee.</p>
-                <p className="font-bold text-brand-accent pt-2">Ghét m nhiều :)))<br />Tiến Quân</p>
+                <p>Mong m sẽ trải nghiệm tốt với 1 tháng này và có nhiều kỉ niệm đáng nhớ tại Việt Nam heheee.</p>
+                <p className="font-bold text-brand-accent pt-2">Thân tặng và ghét nhiều:)))<br />Tiến Quân</p>
               </div>
 
               <button
