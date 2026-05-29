@@ -165,12 +165,24 @@ export const MoodJournal = () => {
     let advice = '';
 
     try {
+      const userRecentEntries = entries
+        .filter(e => e.created_by === user.id)
+        .slice(0, 3)
+        .map(e => ({
+          date: e.entry_date,
+          mood: e.mood,
+          energy: e.energy_level,
+          note: e.note,
+          gratitude: e.gratitude
+        }));
+
       advice = await adviceService.getAdvice({
         type: 'mood',
         mood: selectedMood,
         energy_level: energyLevel,
         note,
-        gratitude
+        gratitude,
+        recentEntries: userRecentEntries
       });
       setGeneratedAdvice(advice);
     } catch (err) {

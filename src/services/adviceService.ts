@@ -6,6 +6,13 @@ export interface AdviceRequest {
   energy_level: number;
   note?: string;
   gratitude?: string;
+  recentEntries?: Array<{
+    date: string;
+    mood: string;
+    energy: number;
+    note?: string;
+    gratitude?: string;
+  }>;
 }
 
 export const adviceService = {
@@ -22,22 +29,29 @@ export const adviceService = {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
+      let historyContext = '';
+      if (request.recentEntries && request.recentEntries.length > 0) {
+        historyContext = `\nLịch sử cảm xúc gần đây của họ (để bạn hiểu thêm ngữ cảnh và có thể cá nhân hóa lời khuyên, không cần nhắc lại chi tiết lịch sử này trừ khi thấy sự liên kết với hôm nay):\n` +
+          request.recentEntries.map(e => `- Ngày ${e.date}: Tâm trạng "${e.mood}", Năng lượng ${e.energy}/10. Chuyện xảy ra: "${e.note || 'Không'}", Biết ơn: "${e.gratitude || 'Không'}"`).join('\n') + `\n`;
+      }
+
       const prompt = `
 Bạn là một người bạn tri kỷ, một chuyên gia tâm lý vô cùng tinh tế, ấm áp và thấu cảm.
 Người dùng vừa ghi lại nhật ký cảm xúc hôm nay với các thông tin sau:
-- Tâm trạng: ${request.mood}
+- Tâm trạng hôm nay: ${request.mood}
 - Mức năng lượng cơ thể: ${request.energy_level}/10 (1 là cạn kiệt, 10 là tràn đầy)
-- Điều khiến họ thấy vậy (câu chuyện thực tế): "${request.note || 'Không chia sẻ gì thêm'}"
-- Điều họ biết ơn hôm nay: "${request.gratitude || 'Không chia sẻ gì thêm'}"
-
-Hãy viết một phản hồi ngắn (từ 7 đến 12 câu) phản hồi lại nhật ký này.
-YÊU CẦU BẮT BUỘC:
-1. Tuyệt đối KHÔNG chào hỏi kiểu "Chào bạn", KHÔNG tự xưng là "AI" hay "trợ lý ảo". Hãy bắt đầu ngay vào nội dung. Xưng "tôi" và gọi là "bạn" một cách chân thành.
-2. TẬP TRUNG vào nội dung câu chuyện trong phần "Điều khiến họ thấy vậy". Lắng nghe sâu sắc, phân tích nhẹ nhàng và xác nhận cảm xúc của họ là hoàn toàn chính đáng.
-3. Nếu câu chuyện buồn/áp lực: Đưa ra lời an ủi, thấu cảm, khuyên họ nghỉ ngơi. Nếu năng lượng thấp (<4), hãy nhấn mạnh việc bảo vệ cơ thể.
-4. Nếu câu chuyện vui: Cùng chung vui và khích lệ họ giữ gìn nguồn năng lượng này.
-5. Nếu họ có viết điều biết ơn, hãy khen ngợi thói quen tuyệt vời này ở cuối đoạn.
-6. Giọng văn phải CỰC KỲ tự nhiên, sâu lắng, chân thật, giống như lời một người bạn thân đang ngồi cạnh và vỗ vai người dùng.
+- ĐIỀU KHIẾN HỌ THẤY VẬY (Câu chuyện hôm nay): "${request.note || 'Không chia sẻ gì thêm'}"
+- LƯU GIỮ SỰ BIẾT ƠN (Điều biết ơn hôm nay): "${request.gratitude || 'Không chia sẻ gì thêm'}"
+${historyContext}
+Hãy viết một đoạn phản hồi ngắn (từ 7 đến 12 câu) dành riêng cho người dùng.
+YÊU CẦU BẮT BUỘC (PHẢI TUÂN THỦ NGHIÊM NGẶT):
+1. Tuyệt đối KHÔNG chào hỏi kiểu "Chào bạn", KHÔNG tự xưng là "AI" hay "trợ lý ảo". Bắt đầu ngay vào nội dung. Xưng "tôi" và gọi là "bạn" (hoặc dùng đúng xưng hô họ dùng trong câu chuyện nếu có).
+2. TẬP TRUNG TỐI ĐA VÀO CÂU CHUYỆN "ĐIỀU KHIẾN HỌ THẤY VẬY" VÀ "LƯU GIỮ SỰ BIẾT ƠN". Phải phân tích sâu vào nội dung cụ thể mà họ đã viết để đưa ra lời khuyên cá nhân hóa, sát với tình huống thực tế của họ. KHÔNG được chỉ trả lời rập khuôn chung chung dựa vào "Tâm trạng" hay "Năng lượng".
+3. Nếu họ kể chuyện buồn/áp lực: Lắng nghe sâu sắc, xác nhận cảm xúc của họ là hoàn toàn hợp lý, đưa ra lời an ủi, thấu cảm chân thành. Nếu năng lượng thấp, khuyên họ nghỉ ngơi.
+4. Nếu họ kể chuyện vui/tích cực: Cùng chung vui, khích lệ họ giữ gìn nguồn năng lượng này.
+5. Móc nối khéo léo phần "Lưu giữ sự biết ơn" vào lời khuyên để tạo động lực và khen ngợi sự nhìn nhận tích cực của họ về cuộc sống.
+6. Tham khảo "Lịch sử cảm xúc" để xem dạo gần đây họ đang mệt mỏi kéo dài hay đang tốt lên, từ đó đưa ra lời động viên kết nối được quá khứ và hiện tại (VD: "Mấy hôm trước bạn khá mệt, thật vui vì hôm nay đã ổn hơn..." hoặc "Dạo này bạn có vẻ áp lực kéo dài...").
+7. Giọng văn phải CỰC KỲ tự nhiên, sâu lắng, chân thật, giống như lời một người bạn thân đang ngồi cạnh rót một cốc nước ấm và trò chuyện cùng họ.
 `;
 
       const result = await model.generateContent(prompt);

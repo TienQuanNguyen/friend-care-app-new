@@ -22,7 +22,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        setUser({ id: session.user.id, email: session.user.email || '' });
+        setUser(prev => {
+          if (prev?.id === session.user.id && prev?.email === session.user.email) return prev;
+          return { id: session.user.id, email: session.user.email || '' };
+        });
       } else {
         setUser(null);
       }
@@ -32,7 +35,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        setUser({ id: session.user.id, email: session.user.email || '' });
+        setUser(prev => {
+          if (prev?.id === session.user.id && prev?.email === session.user.email) return prev;
+          return { id: session.user.id, email: session.user.email || '' };
+        });
       } else {
         setUser(null);
       }
