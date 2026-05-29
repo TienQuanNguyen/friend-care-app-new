@@ -27,11 +27,11 @@ export const FoodPlaces = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showConfettiFor, setShowConfettiFor] = useState<string | null>(null);
-  
+
   // Filter state
   const [filterDistrict, setFilterDistrict] = useState<string>('Tất cả');
   const [filterCategory, setFilterCategory] = useState<string>('Tất cả');
-  
+
   // Form state
   const [foodName, setFoodName] = useState('');
   const [restaurantName, setRestaurantName] = useState('');
@@ -179,26 +179,25 @@ export const FoodPlaces = () => {
         </div>
         <div className="flex items-center gap-3">
           {!isAdding && (
-            <RandomFoodPicker 
+            <RandomFoodPicker
               places={places.filter(place => {
                 const matchDistrict = filterDistrict === 'Tất cả' || place.district === filterDistrict;
                 const matchCategory = filterCategory === 'Tất cả' || place.category === filterCategory;
                 return matchDistrict && matchCategory;
-              })} 
+              })}
               onMarkAsTried={async (place) => {
                 if (!place.tried) {
                   await toggleTried(place);
                 }
-              }} 
+              }}
             />
           )}
-          <Button 
+          <Button
             onClick={() => setIsAdding(!isAdding)}
-            className={`px-6 py-2.5 rounded-pill font-bold shadow-sm transition-all ${
-              isAdding 
-                ? 'bg-canvas-ceramic text-text-main hover:bg-gray-100 border border-gray-200' 
+            className={`px-6 py-2.5 rounded-pill font-bold shadow-sm transition-all ${isAdding
+                ? 'bg-canvas-ceramic text-text-main hover:bg-gray-100 border border-gray-200'
                 : 'bg-brand text-white hover:bg-brand-accent'
-            }`}
+              }`}
           >
             {isAdding ? 'Hủy nhập' : '+ Thêm món ăn'}
           </Button>
@@ -211,7 +210,7 @@ export const FoodPlaces = () => {
             <h2 className="font-bold text-xl text-text-main border-b border-canvas-cool pb-4">
               {editingId ? 'Chỉnh sửa món ngon' : 'Lưu món ngon mới'}
             </h2>
-            
+
             {error && (
               <div className="p-3 mb-4 text-sm text-semantic-destructive bg-semantic-destructive/10 rounded-lg">
                 {error}
@@ -225,7 +224,7 @@ export const FoodPlaces = () => {
                   <label className="block text-[13px] font-bold text-text-soft mb-1.5 uppercase tracking-wider">
                     Tên món ăn <span className="text-semantic-destructive">*</span>
                   </label>
-                  <input 
+                  <input
                     type="text"
                     placeholder="Ví dụ: Lẩu Thái chua cay..."
                     value={foodName}
@@ -239,7 +238,7 @@ export const FoodPlaces = () => {
                   <label className="block text-[13px] font-bold text-text-soft mb-1.5 uppercase tracking-wider">
                     Tên quán / nhà hàng
                   </label>
-                  <input 
+                  <input
                     type="text"
                     placeholder="Ví dụ: Haidilao..."
                     value={restaurantName}
@@ -252,8 +251,8 @@ export const FoodPlaces = () => {
                   <label className="block text-[13px] font-bold text-text-soft mb-1.5 uppercase tracking-wider">
                     Quận / huyện
                   </label>
-                  <select 
-                    value={district} 
+                  <select
+                    value={district}
                     onChange={e => setDistrict(e.target.value)}
                     className="w-full bg-canvas-cool border border-gray-200 rounded-lg px-4 py-3 outline-none focus:border-brand-accent transition-colors text-text-main text-[15px]"
                   >
@@ -265,7 +264,7 @@ export const FoodPlaces = () => {
                   <label className="block text-[13px] font-bold text-text-soft mb-1.5 uppercase tracking-wider">
                     Địa chỉ chi tiết
                   </label>
-                  <input 
+                  <input
                     type="text"
                     placeholder="Ví dụ: 247 Đường số 1..."
                     value={address}
@@ -278,7 +277,7 @@ export const FoodPlaces = () => {
                   <label className="block text-[13px] font-bold text-text-soft mb-1.5 uppercase tracking-wider">
                     Ghi chú địa điểm
                   </label>
-                  <input 
+                  <input
                     type="text"
                     placeholder="Ví dụ: Gửi xe bên hẻm cạnh, nằm ở lầu 2..."
                     value={locationNote}
@@ -294,7 +293,7 @@ export const FoodPlaces = () => {
                   <label className="block text-[13px] font-bold text-text-soft mb-1.5 uppercase tracking-wider">
                     Link Google Maps
                   </label>
-                  <input 
+                  <input
                     type="text"
                     placeholder="https://maps.google.com/..."
                     value={googleMapsUrl}
@@ -302,17 +301,16 @@ export const FoodPlaces = () => {
                     className="w-full bg-canvas-cool border border-gray-200 focus:border-brand-accent rounded-lg px-4 py-3 outline-none transition-colors text-text-main text-[15px]"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-[13px] font-bold text-text-soft mb-1.5 uppercase tracking-wider">
                     Trạng thái trải nghiệm
                   </label>
-                  <div 
-                    className={`p-3.5 rounded-lg border cursor-pointer transition-all flex items-center gap-3 ${
-                      tried 
-                        ? 'border-brand-accent bg-brand-light/20' 
+                  <div
+                    className={`p-3.5 rounded-lg border cursor-pointer transition-all flex items-center gap-3 ${tried
+                        ? 'border-brand-accent bg-brand-light/20'
                         : 'border-gray-200 bg-canvas-cool hover:border-gray-300'
-                    }`}
+                      }`}
                     onClick={() => setTried(!tried)}
                   >
                     <div className="flex-shrink-0">
@@ -329,7 +327,7 @@ export const FoodPlaces = () => {
                   <label className="block text-[13px] font-bold text-text-soft mb-1.5 uppercase tracking-wider">
                     Hình ảnh món ăn (URL)
                   </label>
-                  <input 
+                  <input
                     type="text"
                     placeholder="https://..."
                     value={imageUrl}
@@ -337,13 +335,13 @@ export const FoodPlaces = () => {
                     className="w-full bg-canvas-cool border border-gray-200 focus:border-brand-accent rounded-lg px-4 py-3 outline-none transition-colors text-text-main text-[15px]"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-[13px] font-bold text-text-soft mb-1.5 uppercase tracking-wider">
                     Phân loại
                   </label>
-                  <select 
-                    value={category} 
+                  <select
+                    value={category}
                     onChange={e => setCategory(e.target.value)}
                     className="w-full bg-canvas-cool border border-gray-200 rounded-lg px-4 py-3 outline-none focus:border-brand-accent transition-colors text-text-main text-[15px]"
                   >
@@ -355,7 +353,7 @@ export const FoodPlaces = () => {
                   <label className="block text-[13px] font-bold text-text-soft mb-1.5 uppercase tracking-wider">
                     Mong muốn / ghi chú
                   </label>
-                  <textarea 
+                  <textarea
                     value={note}
                     onChange={e => setNote(e.target.value)}
                     placeholder="Thêm lý do vì sao muốn ăn món này..."
@@ -380,8 +378,8 @@ export const FoodPlaces = () => {
         <div className="flex flex-col sm:flex-row gap-4 bg-white p-4 rounded-xl border border-canvas-dark shadow-sm">
           <div className="flex-1">
             <label className="block text-xs font-bold text-text-soft mb-1 uppercase tracking-wider">Lọc theo Quận</label>
-            <select 
-              value={filterDistrict} 
+            <select
+              value={filterDistrict}
               onChange={e => setFilterDistrict(e.target.value)}
               className="w-full bg-canvas-cool border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-brand transition-colors text-text-main text-sm cursor-pointer"
             >
@@ -391,8 +389,8 @@ export const FoodPlaces = () => {
           </div>
           <div className="flex-1">
             <label className="block text-xs font-bold text-text-soft mb-1 uppercase tracking-wider">Lọc theo Phân loại</label>
-            <select 
-              value={filterCategory} 
+            <select
+              value={filterCategory}
               onChange={e => setFilterCategory(e.target.value)}
               className="w-full bg-canvas-cool border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-brand transition-colors text-text-main text-sm cursor-pointer"
             >
@@ -411,15 +409,15 @@ export const FoodPlaces = () => {
             <Skeleton className="h-[24rem]" />
           </>
         )}
-        
+
         {!isLoading && places.filter(place => {
           const matchDistrict = filterDistrict === 'Tất cả' || place.district === filterDistrict;
           const matchCategory = filterCategory === 'Tất cả' || place.category === filterCategory;
           return matchDistrict && matchCategory;
         }).map(place => (
-          <Card 
-            key={place.id} 
-            padding="none" 
+          <Card
+            key={place.id}
+            padding="none"
             className="flex flex-col overflow-hidden hover:shadow-frap-ambient transition-all border border-gray-100 rounded-[24px] cursor-pointer"
             onClick={() => setSelectedPlace(place)}
           >
@@ -436,21 +434,20 @@ export const FoodPlaces = () => {
                   e.currentTarget.style.display = 'none';
                 }}
               />
-              
+
               {/* Top Pills */}
               <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
                 <span className="bg-white/90 backdrop-blur text-brand-accent text-xs font-bold px-3 py-1.5 rounded-pill shadow-sm">
                   {place.category}
                 </span>
-                <span className={`text-xs font-bold px-3 py-1.5 rounded-pill shadow-sm backdrop-blur flex items-center gap-1.5 ${
-                  place.tried ? 'bg-brand/90 text-white' : 'bg-white/90 text-text-soft'
-                }`}>
+                <span className={`text-xs font-bold px-3 py-1.5 rounded-pill shadow-sm backdrop-blur flex items-center gap-1.5 ${place.tried ? 'bg-brand/90 text-white' : 'bg-white/90 text-text-soft'
+                  }`}>
                   {place.tried ? <AnimatedCheck size={14} color="#fff" /> : null}
                   {place.tried ? 'Đã ăn' : 'Chưa ăn'}
                 </span>
               </div>
             </div>
-            
+
             {/* Content */}
             <div className="p-5 flex-1 flex flex-col">
               <div className="mb-4">
@@ -461,7 +458,7 @@ export const FoodPlaces = () => {
                   <p className="text-brand-accent font-semibold mt-1">{place.restaurant_name}</p>
                 )}
               </div>
-              
+
               <div className="space-y-2 mb-6 flex-1">
                 {(place.district || place.address) && (
                   <div className="flex items-start gap-2 text-sm text-text-soft">
@@ -478,16 +475,15 @@ export const FoodPlaces = () => {
                   </div>
                 )}
               </div>
-              
+
               {/* Footer Actions */}
               <div className="mt-auto pt-4 border-t border-canvas-cool flex items-center justify-between gap-3" onClick={e => e.stopPropagation()}>
                 <motion.button
                   onClick={() => toggleTried(place)}
-                  className={`flex-1 py-2 rounded-xl text-sm font-bold transition-colors ${
-                    place.tried 
-                      ? 'bg-canvas-cool text-text-soft hover:bg-gray-200' 
+                  className={`flex-1 py-2 rounded-xl text-sm font-bold transition-colors ${place.tried
+                      ? 'bg-canvas-cool text-text-soft hover:bg-gray-200'
                       : 'bg-brand-light text-brand-house hover:bg-brand hover:text-white'
-                  }`}
+                    }`}
                   whileTap={{ scale: 0.88 }}
                   animate={{ scale: 1 }}
                   transition={{ type: 'spring', stiffness: 500, damping: 15 }}
@@ -498,9 +494,9 @@ export const FoodPlaces = () => {
                   </div>
                 </motion.button>
                 {place.google_maps_url && (
-                  <a 
-                    href={place.google_maps_url} 
-                    target="_blank" 
+                  <a
+                    href={place.google_maps_url}
+                    target="_blank"
                     rel="noreferrer"
                     className="w-10 h-10 flex items-center justify-center rounded-xl bg-canvas-cool text-brand-accent hover:bg-brand-light transition-colors"
                     title="Mở Google Maps"
@@ -517,16 +513,16 @@ export const FoodPlaces = () => {
           const matchCategory = filterCategory === 'Tất cả' || place.category === filterCategory;
           return matchDistrict && matchCategory;
         }).length === 0 && !isAdding && !isLoading && (
-          <div className="md:col-span-2 lg:col-span-3 text-center py-16 px-4">
-            <div className="bg-white rounded-card shadow-card max-w-md mx-auto p-8 border border-brand-light">
-              <div className="w-16 h-16 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-4">
-                <Utensils className="w-8 h-8 text-brand" />
+            <div className="md:col-span-2 lg:col-span-3 text-center py-16 px-4">
+              <div className="bg-white rounded-card shadow-card max-w-md mx-auto p-8 border border-brand-light">
+                <div className="w-16 h-16 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Utensils className="w-8 h-8 text-brand" />
+                </div>
+                <h3 className="text-lg font-bold text-text-main mb-2">Không tìm thấy món nào</h3>
+                <p className="text-text-soft text-sm">Thử thay đổi bộ lọc hoặc thêm món mới nhé.</p>
               </div>
-              <h3 className="text-lg font-bold text-text-main mb-2">Không tìm thấy món nào</h3>
-              <p className="text-text-soft text-sm">Thử thay đổi bộ lọc hoặc thêm món mới nhé.</p>
             </div>
-          </div>
-        )}
+          )}
         {!isLoading && places.length === 0 && !isAdding && (
           <div className="md:col-span-2 lg:col-span-3 text-center py-16 px-4">
             <div className="bg-white rounded-card shadow-card max-w-md mx-auto p-8 border border-brand-light">
@@ -570,7 +566,7 @@ export const FoodPlaces = () => {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              
+
               <div className="p-6 overflow-y-auto">
                 <div className="flex justify-between items-start mb-4">
                   <div>
@@ -581,9 +577,8 @@ export const FoodPlaces = () => {
                       <p className="text-brand-accent font-semibold">{selectedPlace.restaurant_name}</p>
                     )}
                   </div>
-                  <span className={`text-xs font-bold px-3 py-1.5 rounded-pill shadow-sm shrink-0 flex items-center gap-1.5 ${
-                    selectedPlace.tried ? 'bg-brand/10 text-brand' : 'bg-canvas-dark text-text-soft'
-                  }`}>
+                  <span className={`text-xs font-bold px-3 py-1.5 rounded-pill shadow-sm shrink-0 flex items-center gap-1.5 ${selectedPlace.tried ? 'bg-brand/10 text-brand' : 'bg-canvas-dark text-text-soft'
+                    }`}>
                     {selectedPlace.tried ? <CheckCircle2 className="w-3.5 h-3.5" /> : null}
                     {selectedPlace.tried ? 'Đã ăn' : 'Chưa ăn'}
                   </span>
@@ -609,16 +604,16 @@ export const FoodPlaces = () => {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="flex gap-3 pt-4 border-t border-canvas-cool mt-auto">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="flex-1 text-semantic-destructive border-semantic-destructive hover:bg-semantic-destructive/10"
                     onClick={() => handleDelete(selectedPlace.id)}
                   >
                     <Trash2 className="w-4 h-4 mr-2" /> Xóa món
                   </Button>
-                  <Button 
+                  <Button
                     className="flex-1 bg-brand text-white hover:bg-brand-accent"
                     onClick={() => handleEdit(selectedPlace)}
                   >

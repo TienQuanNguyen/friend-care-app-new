@@ -42,5 +42,17 @@ export const scheduleService = {
       throw error;
     }
     return data;
+  },
+
+  async deleteSchedule(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('schedules')
+      .delete()
+      .eq('id', id);
+      
+    if (error) {
+      console.error('Error deleting schedule:', error);
+      throw error;
+    }
   }
 };

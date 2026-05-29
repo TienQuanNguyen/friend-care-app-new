@@ -27,5 +27,17 @@ export const moodService = {
       throw error;
     }
     return data;
+  },
+
+  async deleteEntry(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('mood_entries')
+      .delete()
+      .eq('id', id);
+      
+    if (error) {
+      console.error('Error deleting mood entry:', error);
+      throw error;
+    }
   }
 };

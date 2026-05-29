@@ -20,7 +20,8 @@ import {
   Clock, 
   Smile, 
   TableProperties, 
-  LayoutGrid 
+  LayoutGrid,
+  Trash2
 } from 'lucide-react';
 import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
@@ -137,6 +138,17 @@ export const MoodJournal = () => {
       setEntries(data);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteEntry = async (id: string) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa ghi chép này?')) return;
+    try {
+      await moodService.deleteEntry(id);
+      setEntries(prev => prev.filter(e => e.id !== id));
+    } catch (err) {
+      console.error('Error deleting entry:', err);
+      alert('Không thể xóa ghi chép.');
     }
   };
 
@@ -432,10 +444,21 @@ export const MoodJournal = () => {
                           }`}>
                             {isCurrentUser ? 'Bạn' : (writerProfile?.display_name || 'Nửa kia')}
                           </span>
-                          <span className="text-xs font-semibold text-text-soft flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-text-soft" />
-                            {format(new Date(entry.entry_date), 'dd/MM/yyyy')}
-                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-semibold text-text-soft flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-text-soft" />
+                              {format(new Date(entry.entry_date), 'dd/MM/yyyy')}
+                            </span>
+                            {user?.email === 'tienquan0807@gmail.com' && (
+                              <button 
+                                onClick={() => handleDeleteEntry(entry.id)}
+                                className="text-red-400 hover:text-red-600 transition-colors p-1"
+                                title="Xóa ghi chép này"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
                         </div>
 
                         {/* Mood Info Row */}
@@ -502,6 +525,7 @@ export const MoodJournal = () => {
                         <th className="p-4">Năng lượng</th>
                         <th className="p-4">Cảm nhận</th>
                         <th className="p-4">Biết ơn</th>
+                        {user?.email === 'tienquan0807@gmail.com' && <th className="p-4">Thao tác</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -532,6 +556,17 @@ export const MoodJournal = () => {
                             <td className="p-4 text-text-main max-w-xs truncate" title={entry.gratitude}>
                               {entry.gratitude || '-'}
                             </td>
+                            {user?.email === 'tienquan0807@gmail.com' && (
+                              <td className="p-4">
+                                <button 
+                                  onClick={() => handleDeleteEntry(entry.id)}
+                                  className="text-red-400 hover:text-red-600 transition-colors p-1"
+                                  title="Xóa ghi chép này"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         );
                       })}

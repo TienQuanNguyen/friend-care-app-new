@@ -77,7 +77,7 @@ export const Dashboard = () => {
 
   useEffect(() => {
     pickRandomMessage();
-    
+
     const hasSeen = localStorage.getItem('friendcare_has_seen_welcome_son_duyen');
     if (!hasSeen) {
       setTimeout(() => setShowWelcomeModal(true), 500);
@@ -186,8 +186,8 @@ export const Dashboard = () => {
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
                 <h3 className="text-lg font-bold tracking-wide text-brand-light">Lời nhắn hôm nay</h3>
-                <button 
-                  onClick={() => pickRandomMessage()} 
+                <button
+                  onClick={() => pickRandomMessage()}
                   className="p-1.5 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center text-brand-light hover:text-white"
                   title="Đổi lời nhắn khác"
                 >
@@ -399,10 +399,10 @@ export const Dashboard = () => {
               </div>
 
               <div className="space-y-4 text-text-main text-[15px] leading-relaxed mb-8">
-                <p>Chào Sơn Duyên - người đáng ghét trong cuộc đời t,</p>
-                <p>Hmmm không biết nói sao nữa nhưng sắp tới m về Việt Nam tạo viết ra một cái web nho nhỏ này và còn những thiếu xót (như tao v).</p>
-                <p>Mong m sẽ trải nghiệm tốt với 1 tháng này và có nhiều kỉ niệm đáng nhớ tại Việt Nam heheee.</p>
-                <p className="font-bold text-brand-accent pt-2">Thân tặng và ghét nhiều:)))<br />Tiến Quân</p>
+                <p>Hello Sơn Duyên - người đáng ghét trong cuộc đời tao,</p>
+                <p>Hmmm không biết nói sao nữa nhưng sắp tới m về Việt Nam tao tạo viết ra một cái web nho nhỏ này và còn nhiều thiếu xót (như tao vậy).</p>
+                <p>Mong mày sẽ trải nghiệm tốt thời gian về này và có nhiều kỉ niệm đáng nhớ tại Việt Nam heheee.</p>
+                <p className="font-bold text-brand-accent pt-2">Thân tặng và ghét nhiều<br />Tiến Quân</p>
               </div>
 
               <button

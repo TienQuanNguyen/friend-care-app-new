@@ -21,7 +21,7 @@ import {
   parseISO
 } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { CalendarHeart, ChevronLeft, ChevronRight, LayoutGrid, List, TableProperties } from 'lucide-react';
+import { CalendarHeart, ChevronLeft, ChevronRight, LayoutGrid, List, TableProperties, X, Trash2 } from 'lucide-react';
 import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 import { MiniConfetti } from '../components/ui/MiniConfetti';
@@ -64,7 +64,8 @@ export const Schedules = () => {
   const { user } = useAuth();
   const { careSpace } = useCareSpace();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
-  const [isAdding, setIsAdding] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -128,23 +129,36 @@ export const Schedules = () => {
     const endDateTime = endTime ? new Date(`${dateStr}T${endTime}`) : undefined;
 
     try {
-      const result = await scheduleService.addSchedule({
-        care_space_id: careSpace.id,
-        created_by: user.id,
-        title,
-        description,
-        start_time: startDateTime.toISOString(),
-        end_time: endDateTime?.toISOString(),
-        category,
-        assigned_to: assignedTo,
-        status,
-        color_type: category === 'couple' ? 'pink' : 'gray',
-      });
-
-      if (!result) throw new Error("Tạo lịch thất bại. Vui lòng thử lại.");
+      if (editingId) {
+        const result = await scheduleService.updateSchedule(editingId, {
+          title,
+          description,
+          start_time: startDateTime.toISOString(),
+          end_time: endDateTime?.toISOString(),
+          category,
+          assigned_to: assignedTo,
+          status,
+          color_type: category === 'couple' ? 'pink' : 'gray',
+        });
+        if (!result) throw new Error("Cập nhật lịch thất bại.");
+      } else {
+        const result = await scheduleService.addSchedule({
+          care_space_id: careSpace.id,
+          created_by: user.id,
+          title,
+          description,
+          start_time: startDateTime.toISOString(),
+          end_time: endDateTime?.toISOString(),
+          category,
+          assigned_to: assignedTo,
+          status,
+          color_type: category === 'couple' ? 'pink' : 'gray',
+        });
+        if (!result) throw new Error("Tạo lịch thất bại. Vui lòng thử lại.");
+      }
 
       resetForm();
-      setIsAdding(false);
+      setIsModalOpen(false);
       loadSchedules();
     } catch (err: any) {
       console.error(err);
@@ -152,6 +166,43 @@ export const Schedules = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn xóa lịch hẹn này?")) return;
+    try {
+      await scheduleService.deleteSchedule(id);
+      setIsModalOpen(false);
+      loadSchedules();
+    } catch (err: any) {
+      alert("Không thể xóa lịch hẹn.");
+    }
+  };
+
+  const handleDateClick = (day: Date) => {
+    resetForm();
+    setDateStr(format(day, 'yyyy-MM-dd'));
+    setEditingId(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEventClick = (e: React.MouseEvent, schedule: Schedule) => {
+    e.stopPropagation();
+    const st = parseISO(schedule.start_time);
+    setTitle(schedule.title);
+    setDescription(schedule.description || '');
+    setDateStr(format(st, 'yyyy-MM-dd'));
+    setStartTime(format(st, 'HH:mm'));
+    if (schedule.end_time) {
+      setEndTime(format(parseISO(schedule.end_time), 'HH:mm'));
+    } else {
+      setEndTime('');
+    }
+    setCategory(schedule.category);
+    setAssignedTo(schedule.assigned_to);
+    setStatus(schedule.status);
+    setEditingId(schedule.id);
+    setIsModalOpen(true);
   };
 
   // Calendar logic
@@ -180,14 +231,14 @@ export const Schedules = () => {
           </p>
         </div>
         <Button 
-          onClick={() => setIsAdding(!isAdding)}
-          className={`px-6 py-2.5 rounded-pill font-bold shadow-sm transition-all ${
-            isAdding 
-              ? 'bg-canvas-ceramic text-text-main border border-gray-200' 
-              : 'bg-brand text-white'
-          }`}
+          onClick={() => {
+            resetForm();
+            setEditingId(null);
+            setIsModalOpen(true);
+          }}
+          className="px-6 py-2.5 rounded-pill font-bold shadow-sm transition-all bg-brand text-white"
         >
-          {isAdding ? 'Hủy' : '+ Tạo lịch hẹn'}
+          + Tạo lịch hẹn
         </Button>
       </div>
 
@@ -250,11 +301,24 @@ export const Schedules = () => {
         </div>
       </Card>
 
-      {/* Add Event Form Modal / Card */}
-      {isAdding && (
-        <Card className="bg-white/80 backdrop-blur border border-brand-light shadow-card rounded-card">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <h2 className="font-bold text-xl text-text-main border-b border-canvas-cool pb-4">Tạo lịch hẹn mới</h2>
+      {/* Add/Edit Event Form Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto">
+          <div 
+            className="absolute inset-0" 
+            onClick={() => setIsModalOpen(false)}
+          />
+          <Card className="bg-white border border-brand-light shadow-2xl rounded-card w-full max-w-lg relative z-10 my-auto">
+            <button 
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-4 right-4 text-text-soft hover:text-text-main transition-colors p-1 bg-canvas-cool rounded-full"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+              <h2 className="font-bold text-xl text-text-main border-b border-canvas-cool pb-4">
+                {editingId ? 'Chỉnh sửa sự kiện' : 'Tạo lịch hẹn mới'}
+              </h2>
             
             {error && (
               <div className="p-3 mb-2 text-sm text-semantic-destructive bg-semantic-destructive/10 rounded-lg">
@@ -311,18 +375,29 @@ export const Schedules = () => {
               </div>
             </div>
             <div className="flex justify-end gap-3 pt-4 border-t border-canvas-cool mt-4">
-              <Button type="button" onClick={() => setIsAdding(false)} className="bg-canvas-ceramic text-text-main border border-gray-200">Hủy</Button>
+              {editingId && (
+                <Button 
+                  type="button" 
+                  onClick={() => handleDelete(editingId)} 
+                  className="bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 mr-auto flex items-center gap-2 px-4"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Xóa
+                </Button>
+              )}
+              <Button type="button" onClick={() => setIsModalOpen(false)} className="bg-canvas-ceramic text-text-main border border-gray-200">Hủy</Button>
               <Button type="submit" className="bg-brand text-white hover:bg-brand-accent" disabled={isSubmitting}>
                 {isSubmitting ? 'Đang lưu...' : 'Lưu lịch hẹn'}
               </Button>
             </div>
           </form>
         </Card>
+        </div>
       )}
 
       {/* Main View Area */}
       <Card className="bg-white border-none p-0 overflow-hidden shadow-card rounded-card">
-        {schedules.length === 0 && !isAdding && viewMode !== 'Tháng' ? (
+        {schedules.length === 0 && !isModalOpen && viewMode !== 'Tháng' ? (
           <div className="text-center py-16 px-4 border border-brand-light rounded-card">
             <div className="w-16 h-16 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-4">
               <CalendarHeart className="w-8 h-8 text-brand-accent" />
@@ -355,7 +430,8 @@ export const Schedules = () => {
                     return (
                       <div 
                         key={day.toString()} 
-                        className={`min-h-[110px] p-2 border-r border-b border-brand-light/50 transition-colors hover:bg-canvas-cool/50 ${
+                        onClick={() => handleDateClick(day)}
+                        className={`min-h-[110px] p-2 border-r border-b border-brand-light/50 transition-colors hover:bg-canvas-cool/50 cursor-pointer ${
                           !isCurrentMonth ? 'bg-canvas-cool/30 opacity-50' : 'bg-white'
                         }`}
                       >
@@ -368,7 +444,11 @@ export const Schedules = () => {
                         </div>
                         <div className="space-y-1 overflow-y-auto max-h-[70px] no-scrollbar">
                           {dayEvents.slice(0, 2).map(e => (
-                            <div key={e.id} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded truncate ${getEventColor(e.category)}`}>
+                            <div 
+                              key={e.id} 
+                              onClick={(event) => handleEventClick(event, e)}
+                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded truncate hover:opacity-80 transition-opacity ${getEventColor(e.category)}`}
+                            >
                               <span className="opacity-80 mr-1">{format(parseISO(e.start_time), 'HH:mm')}</span>
                               {e.title}
                             </div>
@@ -403,7 +483,11 @@ export const Schedules = () => {
                     {schedules.map(schedule => {
                       const st = parseISO(schedule.start_time);
                       return (
-                        <tr key={schedule.id} className="border-b border-canvas-cool/50 hover:bg-canvas-cool/30">
+                        <tr 
+                          key={schedule.id} 
+                          className="border-b border-canvas-cool/50 hover:bg-canvas-cool/30 cursor-pointer"
+                          onClick={(e) => handleEventClick(e, schedule)}
+                        >
                           <td className="py-4 font-semibold text-text-main">{format(st, 'dd/MM/yyyy')}</td>
                           <td className="py-4 text-text-soft">{format(st, 'HH:mm')}</td>
                           <td className="py-4 font-semibold text-text-main">{schedule.title}</td>
@@ -427,7 +511,11 @@ export const Schedules = () => {
                 {schedules.sort((a,b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()).map(schedule => {
                   const st = parseISO(schedule.start_time);
                   return (
-                    <div key={schedule.id} className="flex gap-4 p-4 border border-canvas-cool rounded-xl hover:bg-canvas-cool/30 transition-colors">
+                    <div 
+                      key={schedule.id} 
+                      className="flex gap-4 p-4 border border-canvas-cool rounded-xl hover:bg-canvas-cool/30 transition-colors cursor-pointer"
+                      onClick={(e) => handleEventClick(e, schedule)}
+                    >
                       <div className="bg-brand-light/30 rounded-xl p-3 text-center min-w-[70px] h-fit">
                         <div className="text-xs font-bold text-brand uppercase">{format(st, 'MMM', { locale: vi })}</div>
                         <div className="text-2xl font-bold text-brand-house">{format(st, 'dd')}</div>
