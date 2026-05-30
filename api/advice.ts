@@ -5,53 +5,89 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method not allowed. Use POST.' });
   }
 
-  const { type, mood, energy_level, note, gratitude, recentEntries } = req.body || {};
+  const { mood, energy_level, note, gratitude, recentEntries, variationSeed } = req.body || {};
 
   if (!mood) {
     return res.status(400).json({ error: 'Missing required field: mood' });
   }
 
-  const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+  // Only use server-side env var. In Vite dev mode, ssrLoadModule exposes
+  // import.meta.env for .env.local values prefixed with VITE_.
+  const apiKey = process.env.GEMINI_API_KEY
+    || (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GEMINI_API_KEY)
+    || process.env.VITE_GEMINI_API_KEY;
+
   if (!apiKey) {
-    console.error('[Backend API Error] Gemini API Key is not defined.');
-    return res.status(500).json({ error: 'Config error' });
+    console.error('[Backend API Error] GEMINI_API_KEY is not defined.');
+    return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
+  }
+
+  const safeEnergy = (typeof energy_level === 'number' && energy_level >= 1 && energy_level <= 10)
+    ? energy_level : 5;
+  const noteText = (note || '').trim().slice(0, 800) || 'Không chia sẻ gì thêm';
+  const gratitudeText = (gratitude || '').trim().slice(0, 500) || 'Không chia sẻ gì thêm';
+
+  // Build recent entries summary
+  let recentEntriesSummary = 'Không có lịch sử gần đây.';
+  if (recentEntries && Array.isArray(recentEntries) && recentEntries.length > 0) {
+    recentEntriesSummary = recentEntries.slice(0, 14).map((e: any) => {
+      const entryNote = (e.note || '').trim().slice(0, 200) || 'Không';
+      const entryGratitude = (e.gratitude || '').trim().slice(0, 150) || 'Không';
+      const entryEnergy = e.energy ?? e.energy_level ?? '?';
+      return `- Ngày ${e.date || e.entry_date || '?'}: Tâm trạng "${e.mood || '?'}", Năng lượng ${entryEnergy}/10. Chuyện: "${entryNote}", Biết ơn: "${entryGratitude}"`;
+    }).join('\n');
   }
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-    let historyContext = '';
-    if (recentEntries && Array.isArray(recentEntries) && recentEntries.length > 0) {
-      historyContext = `\nLịch sử cảm xúc gần đây của họ (để bạn hiểu thêm ngữ cảnh và có thể cá nhân hóa lời khuyên, không cần nhắc lại chi tiết lịch sử này trừ khi thấy sự liên kết với hôm nay):\n` +
-        recentEntries.map(e => `- Ngày ${e.date}: Tâm trạng "${e.mood}", Năng lượng ${e.energy}/10. Chuyện xảy ra: "${e.note || 'Không'}", Biết ơn: "${e.gratitude || 'Không'}"`).join('\n') + `\n`;
-    }
+    const prompt = `Bạn đang viết một đoạn phản hồi cảm xúc bằng tiếng Việt cho nhật ký riêng tư của người dùng.
 
-    const prompt = `
-Bạn là một người bạn tri kỷ, một chuyên gia tâm lý vô cùng tinh tế, ấm áp và thấu cảm.
-Người dùng vừa ghi lại nhật ký cảm xúc hôm nay với các thông tin sau:
-- Tâm trạng hôm nay: ${mood}
-- Mức năng lượng cơ thể: ${energy_level}/10 (1 là cạn kiệt, 10 là tràn đầy)
-- ĐIỀU KHIẾN HỌ THẤY VẬY (Câu chuyện hôm nay): "${note || 'Không chia sẻ gì thêm'}"
-- LƯU GIỮ SỰ BIẾT ƠN (Điều biết ơn hôm nay): "${gratitude || 'Không chia sẻ gì thêm'}"
-${historyContext}
-Hãy viết một đoạn phản hồi ngắn (từ 7 đến 12 câu) dành riêng cho người dùng.
-YÊU CẦU BẮT BUỘC (PHẢI TUÂN THỦ NGHIÊM NGẶT):
-1. Tuyệt đối KHÔNG chào hỏi kiểu "Chào bạn", KHÔNG tự xưng là "AI" hay "trợ lý ảo". Bắt đầu ngay vào nội dung. Xưng "tôi" và gọi là "bạn" (hoặc dùng đúng xưng hô họ dùng trong câu chuyện nếu có).
-2. TẬP TRUNG TỐI ĐA VÀO CÂU CHUYỆN "ĐIỀU KHIẾN HỌ THẤY VẬY" VÀ "LƯU GIỮ SỰ BIẾT ƠN". Phải phân tích sâu vào nội dung cụ thể mà họ đã viết để đưa ra lời khuyên cá nhân hóa, sát với tình huống thực tế của họ. KHÔNG được chỉ trả lời rập khuôn chung chung dựa vào "Tâm trạng" hay "Năng lượng".
-3. Nếu họ kể chuyện buồn/áp lực: Lắng nghe sâu sắc, xác nhận cảm xúc của họ là hoàn toàn hợp lý, đưa ra lời an ủi, thấu cảm chân thành. Nếu năng lượng thấp, khuyên họ nghỉ ngơi.
-4. Nếu họ kể chuyện vui/tích cực: Cùng chung vui, khích lệ họ giữ gìn nguồn năng lượng này.
-5. Móc nối khéo léo phần "Lưu giữ sự biết ơn" vào lời khuyên để tạo động lực và khen ngợi sự nhìn nhận tích cực của họ về cuộc sống.
-6. Tham khảo "Lịch sử cảm xúc" để xem dạo gần đây họ đang mệt mỏi kéo dài hay đang tốt lên, từ đó đưa ra lời động viên kết nối được quá khứ và hiện tại (VD: "Mấy hôm trước bạn khá mệt, thật vui vì hôm nay đã ổn hơn..." hoặc "Dạo này bạn có vẻ áp lực kéo dài...").
-7. Giọng văn phải CỰC KỲ tự nhiên, sâu lắng, chân thật, giống như lời một người bạn thân đang ngồi cạnh rót một cốc nước ấm và trò chuyện cùng họ.
-`;
+Mục tiêu: Không viết theo template. Không viết lời khuyên chung chung theo mood. Không viết kiểu thơ/sến. Hãy đọc câu chuyện người dùng kể, hiểu cảm xúc bên trong, rồi phản hồi như một người bạn thật sự đang lắng nghe.
+
+Dữ liệu hôm nay:
+- Tâm trạng: ${mood}
+- Năng lượng: ${safeEnergy}/10
+- Câu chuyện hôm nay: "${noteText}"
+- Điều biết ơn hôm nay: "${gratitudeText}"
+
+Ngữ cảnh gần đây:
+${recentEntriesSummary}
+
+Variation seed: ${variationSeed || 'none'}
+
+Luật viết:
+1. Câu chuyện trong "Câu chuyện hôm nay" là trung tâm tuyệt đối.
+2. "Điều biết ơn hôm nay" là điểm tựa phụ, nối vào tự nhiên.
+3. Mood và energy chỉ là ngữ cảnh phụ, KHÔNG được dùng làm nội dung chính.
+4. Nếu "Câu chuyện hôm nay" có nội dung, 2 câu đầu phải đi thẳng vào câu chuyện đó.
+5. Nếu câu chuyện buồn nhưng mood là "Bình yên", hãy hiểu "bình yên" như một khoảng lặng sau nhiều ngày suy nghĩ, không phải vui vẻ.
+6. Nếu câu chuyện nhắc đến mưa, Sài Gòn, năm cuối, hồ sơ, gia đình, bạn bè, áp lực, tương lai, seen, người ấy, chia tay... phải phản hồi đúng các chi tiết đó.
+7. Nếu "Ngữ cảnh gần đây" cho thấy chủ đề lặp lại nhiều ngày, chỉ nhắc nhẹ 1 câu.
+8. Cấm tuyệt đối các cụm: "mọi việc rồi sẽ ổn" (nếu không có ngữ cảnh), "trân trọng hành trình", "ngọn đèn nhỏ", "món quà vô giá", "khi bạn chia sẻ rằng", "sự kiện này tác động trực tiếp", "lý giải vì sao", "giữa cuộc sống hối hả", "soi sáng và sưởi ấm tâm hồn".
+9. Không chẩn đoán tâm lý/y khoa.
+10. Không nhắc mình là AI/trợ lý ảo.
+11. Không markdown, không bullet, không đánh số.
+12. Viết 7–10 câu.
+13. Có 1–2 gợi ý nhỏ, thực tế, làm được hôm nay hoặc ngày mai.
+14. Giọng văn tự nhiên, cụ thể, giống một người bạn thân đang phản hồi. Xưng "tôi", gọi "bạn".
+15. Tuyệt đối KHÔNG chào hỏi kiểu "Chào bạn". Bắt đầu ngay vào nội dung.
+
+Hãy viết đoạn phản hồi ngay dưới đây:`;
 
     const result = await model.generateContent(prompt);
     const adviceText = result.response.text().trim();
-    
+
+    if (!adviceText) {
+      console.error('[Backend API Error] Gemini returned empty response.');
+      return res.status(502).json({ error: 'Gemini returned empty advice' });
+    }
+
     return res.status(200).json({ advice: adviceText });
   } catch (error: any) {
     console.error('[Backend API Error] Gemini call failed:', error.message || error);
-    return res.status(502).json({ error: 'Gemini service unavailable' });
+    const statusCode = error.status || 502;
+    return res.status(statusCode).json({ error: 'Gemini service unavailable' });
   }
 }

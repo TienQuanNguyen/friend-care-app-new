@@ -39,5 +39,17 @@ export const moodService = {
       console.error('Error deleting mood entry:', error);
       throw error;
     }
+  },
+
+  async updateAdvice(id: string, ai_advice: string): Promise<void> {
+    const { error } = await supabase
+      .from('mood_entries')
+      .update({ ai_advice })
+      .eq('id', id);
+      
+    if (error) {
+      console.error('Error updating mood entry advice:', error);
+      throw error;
+    }
   }
 };

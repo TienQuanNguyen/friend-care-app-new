@@ -21,7 +21,8 @@ import {
   Smile, 
   TableProperties, 
   LayoutGrid,
-  Trash2
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
@@ -117,6 +118,7 @@ export const MoodJournal = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
+  const [retryingEntryId, setRetryingEntryId] = useState<string | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedEntries(prev => {
@@ -165,9 +167,10 @@ export const MoodJournal = () => {
     let advice = '';
 
     try {
+      // Send up to 14 recent entries for AI context
       const userRecentEntries = entries
         .filter(e => e.created_by === user.id)
-        .slice(0, 3)
+        .slice(0, 14)
         .map(e => ({
           date: e.entry_date,
           mood: e.mood,
@@ -177,17 +180,18 @@ export const MoodJournal = () => {
         }));
 
       advice = await adviceService.getAdvice({
-        type: 'mood',
         mood: selectedMood,
         energy_level: energyLevel,
         note,
         gratitude,
-        recentEntries: userRecentEntries
+        recentEntries: userRecentEntries,
+        variationSeed: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       });
       setGeneratedAdvice(advice);
     } catch (err) {
       console.error(err);
-      advice = 'Hôm nay bạn đã làm rất tốt. Hãy nghỉ ngơi nhé.';
+      // No fake fallback advice – just leave empty
+      advice = '';
     }
 
     try {
@@ -198,7 +202,7 @@ export const MoodJournal = () => {
         energy_level: energyLevel,
         note,
         gratitude,
-        ai_advice: advice,
+        ai_advice: advice || undefined,
         entry_date: format(new Date(), 'yyyy-MM-dd')
       });
       
@@ -209,7 +213,7 @@ export const MoodJournal = () => {
       setNote('');
       setGratitude('');
       loadEntries();
-      setIsFormOpen(false); // Close form after saving
+      setIsFormOpen(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 2000);
     } catch (err: any) {
@@ -217,6 +221,47 @@ export const MoodJournal = () => {
       setError(err.message || "Đã xảy ra lỗi khi lưu nhật ký.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleRetryAdvice = async (entry: MoodEntry) => {
+    if (!user) return;
+    setRetryingEntryId(entry.id);
+    try {
+      const userRecentEntries = entries
+        .filter(e => e.created_by === user.id && e.id !== entry.id)
+        .slice(0, 14)
+        .map(e => ({
+          date: e.entry_date,
+          mood: e.mood,
+          energy: e.energy_level,
+          note: e.note,
+          gratitude: e.gratitude
+        }));
+
+      const advice = await adviceService.getAdvice({
+        mood: entry.mood,
+        energy_level: entry.energy_level,
+        note: entry.note,
+        gratitude: entry.gratitude,
+        recentEntries: userRecentEntries,
+        variationSeed: `retry-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      });
+
+      if (advice) {
+        // Update in Supabase
+        try {
+          await moodService.updateAdvice(entry.id, advice);
+        } catch (dbErr) {
+          console.warn('[RetryAdvice] DB update failed, updating local only:', dbErr);
+        }
+        // Update local state
+        setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, ai_advice: advice } : e));
+      }
+    } catch (err) {
+      console.error('[RetryAdvice] Failed:', err);
+    } finally {
+      setRetryingEntryId(null);
     }
   };
 
@@ -506,9 +551,21 @@ export const MoodJournal = () => {
 
                       <div className="mt-4 pt-4 border-t border-canvas-cool flex flex-col items-start">
                         {/* AI Advice Block */}
-                        {entry.ai_advice && (
+                        {entry.ai_advice ? (
                           <div className={`text-xs text-text-soft italic leading-relaxed ${isExpanded ? '' : 'line-clamp-3'}`}>
                             "{entry.ai_advice}"
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-text-muted italic">AI chưa phản hồi được lúc này. Nhật ký của bạn vẫn đã được lưu.</span>
+                            <button
+                              onClick={() => handleRetryAdvice(entry)}
+                              disabled={retryingEntryId === entry.id}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-brand-accent hover:text-brand transition-colors disabled:opacity-50"
+                            >
+                              <RefreshCw className={`w-3 h-3 ${retryingEntryId === entry.id ? 'animate-spin' : ''}`} />
+                              {retryingEntryId === entry.id ? 'Đang tạo...' : 'Tạo lại lời khuyên'}
+                            </button>
                           </div>
                         )}
                         
