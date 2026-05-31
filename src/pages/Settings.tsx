@@ -26,6 +26,14 @@ const AVATAR_OPTIONS = [
   { icon: '🌙', label: 'Moon' },
   { icon: '🎈', label: 'Balloon' },
   { icon: '🍓', label: 'Strawberry' },
+  { icon: '🍵', label: 'Matcha' },
+  { icon: '📄', label: 'Paper' },
+  { icon: '☀️', label: 'Sun' },
+  { icon: '🦀', label: 'Crab' },
+  { icon: '🦂', label: 'Scorpion' },
+  { icon: '☁️', label: 'Cloud' },
+  { icon: '❄️', label: 'Snowflake' },
+  { icon: '🐰', label: 'Rabbit' },
 ];
 
 export const Settings = () => {

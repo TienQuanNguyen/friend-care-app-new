@@ -31,10 +31,10 @@ export const Auth = () => {
       } else if (isRegister) {
         await register(email, password);
         // Supabase auto logins on successful signup
-        navigate('/onboarding');
+        navigate('/');
       } else {
         await login(email, password);
-        navigate('/onboarding');
+        navigate('/');
       }
     } catch (err: any) {
       setError(err.message || 'Có lỗi xảy ra. Vui lòng thử lại.');

@@ -126,3 +126,17 @@ export const ADMIN_EMAILS = ['tienquan0807@gmail.com'];
 export function isAdminEmail(email?: string | null): boolean {
   return !!email && ADMIN_EMAILS.includes(email.trim().toLowerCase());
 }
+
+export interface MusicNote {
+  id: string;
+  care_space_id?: string;
+  couple_id?: string;
+  created_by: string;
+  title: string;
+  artist?: string | null;
+  spotify_url?: string | null;
+  note?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+  creator_name?: string | null;
+}

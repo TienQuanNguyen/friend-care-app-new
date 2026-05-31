@@ -46,4 +46,21 @@
   .animate-fade-up {
     animation: fadeInUp 0.35s ease-out both;
   }
+
+  .vinyl-spin {
+    animation: vinyl-spin 5s linear infinite;
+  }
+  @keyframes vinyl-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .vinyl-spin {
+      animation: none;
+    }
+  }
 }

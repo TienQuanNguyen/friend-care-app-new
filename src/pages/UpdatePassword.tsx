@@ -30,7 +30,7 @@ export const UpdatePassword = () => {
       await updatePassword(password);
       setSuccess(true);
       setTimeout(() => {
-        navigate('/onboarding');
+        navigate('/');
       }, 3000);
     } catch (err: any) {
       setError(err.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
@@ -58,7 +58,7 @@ export const UpdatePassword = () => {
             <div className="mb-4 p-4 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg">
               Mật khẩu đã được cập nhật thành công! Đang chuyển hướng...
             </div>
-            <Button onClick={() => navigate('/onboarding')} className="w-full">
+            <Button onClick={() => navigate('/')} className="w-full">
               Tiếp tục
             </Button>
           </div>

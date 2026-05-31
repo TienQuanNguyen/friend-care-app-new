@@ -16,6 +16,12 @@ CREATE TABLE IF NOT EXISTS app_announcements (
 -- Enable RLS
 ALTER TABLE app_announcements ENABLE ROW LEVEL SECURITY;
 
+-- Drop policies if they exist to allow re-running the migration safely
+DROP POLICY IF EXISTS "Users can read active announcements" ON app_announcements;
+DROP POLICY IF EXISTS "Admin can insert announcements" ON app_announcements;
+DROP POLICY IF EXISTS "Admin can update announcements" ON app_announcements;
+DROP POLICY IF EXISTS "Admin can delete announcements" ON app_announcements;
+
 -- All authenticated users can read active announcements
 CREATE POLICY "Users can read active announcements"
 ON app_announcements
@@ -52,3 +58,7 @@ TO authenticated
 USING (
   lower(auth.jwt() ->> 'email') = 'tienquan0807@gmail.com'
 );
+
+-- Grant privileges to authenticated, anon, and service_role roles
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.app_announcements TO authenticated, anon, service_role;
+

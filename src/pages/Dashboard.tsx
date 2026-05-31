@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { motion, Variants, AnimatePresence } from 'framer-motion';
 import { Card } from '../components/ui/Card';
 import { useCareSpace } from '../contexts/CareSpaceContext';
-import { Smile, Calendar as CalendarIcon, Heart, Users, Flame, Utensils, Image as ImageIcon, Sparkles, X, RefreshCw } from 'lucide-react';
+import { Smile, Calendar as CalendarIcon, Heart, Users, Flame, Utensils, Image as ImageIcon, Sparkles, X, RefreshCw, Disc, Disc3, Plus, ExternalLink, Music, Trash2 } from 'lucide-react';
 import { moodService } from '../services/moodService';
 import { scheduleService } from '../services/scheduleService';
 import { foodService } from '../services/foodService';
-import { MoodEntry, Schedule, FoodPlace } from '../types';
+import { musicService } from '../services/musicService';
+import { memoryService } from '../services/memoryService';
+import { MoodEntry, Schedule, FoodPlace, MusicNote, Memory } from '../types';
 import { format, parseISO, isToday } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
@@ -49,6 +51,17 @@ const DAILY_MESSAGES = [
   "Thấy Tiến Quân đẹp trai không? Có or Yes?"
 ];
 
+export function SpinningVinylIcon() {
+  return (
+    <div className="h-[42px] w-[42px] shrink-0 rounded-full bg-emerald-50 flex items-center justify-center">
+      <div className="vinyl-spin relative flex items-center justify-center">
+        <Disc3 className="h-5 w-5 text-emerald-700" strokeWidth={2.2} />
+        <span className="absolute h-1.5 w-1.5 rounded-full bg-emerald-700/70" />
+      </div>
+    </div>
+  );
+}
+
 export const Dashboard = () => {
   const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
@@ -56,10 +69,201 @@ export const Dashboard = () => {
   const [upcomingSchedules, setUpcomingSchedules] = useState<Schedule[]>([]);
   const [recentFoods, setRecentFoods] = useState<FoodPlace[]>([]);
 
+  // Memories state
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [isUploadingMemory, setIsUploadingMemory] = useState(false);
+  const [activeMemoryId, setActiveMemoryId] = useState<string | null>(null);
+  const memoryFileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Music notes state
+  const [todayMusicSlots, setTodayMusicSlots] = useState<MusicNote[]>([]);
+  const [musicHistory, setMusicHistory] = useState<MusicNote[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  // Add form fields
+  const [musicSpotifyUrl, setMusicSpotifyUrl] = useState('');
+  const [musicNote, setMusicNote] = useState('');
+  const [isSavingMusic, setIsSavingMusic] = useState(false);
+  const [musicError, setMusicError] = useState('');
+  const [urlWarning, setUrlWarning] = useState('');
+
+  const formRef = React.useRef<HTMLDivElement>(null);
+
   // Daily Mood Check-in state
   const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
   const [isSavingMood, setIsSavingMood] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+
+  const loadMusicData = async () => {
+    try {
+      const today = await musicService.getTodayMusicByUser();
+      setTodayMusicSlots(today);
+      if (today.length > 0) {
+        // Safe check for index bounds
+        setActiveIndex(prev => (prev < today.length ? prev : 0));
+      }
+    } catch (err) {
+      console.error('Error loading today music:', err);
+    }
+  };
+
+  const loadMusicHistory = async () => {
+    try {
+      const history = await musicService.getMusicNotes();
+      setMusicHistory(history);
+    } catch (err) {
+      console.error('Error loading music history:', err);
+    }
+  };
+
+  const openHistory = () => {
+    setShowHistoryModal(true);
+    loadMusicHistory();
+  };
+
+  const handleUrlChange = (value: string) => {
+    setMusicSpotifyUrl(value);
+    if (!value.trim()) {
+      setUrlWarning('');
+      return;
+    }
+    if (!value.startsWith('https://')) {
+      setUrlWarning('Link nên bắt đầu bằng https://');
+    } else if (!value.includes('spotify.com')) {
+      setUrlWarning('Nên sử dụng link từ open.spotify.com');
+    } else {
+      setUrlWarning('');
+    }
+  };
+
+  const handleSaveMusic = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!musicSpotifyUrl.trim()) {
+      setMusicError('Vui lòng nhập Link Spotify.');
+      return;
+    }
+
+    setIsSavingMusic(true);
+    setMusicError('');
+
+    try {
+      const newNote = await musicService.createMusicNote({
+        title: "Bài nhạc đã chia sẻ",
+        spotify_url: musicSpotifyUrl.trim() || undefined,
+        note: musicNote.trim() || undefined,
+      });
+
+      if (newNote) {
+        setMusicSpotifyUrl('');
+        setMusicNote('');
+        setShowAddForm(false);
+        setUrlWarning('');
+
+        const today = await musicService.getTodayMusicByUser();
+        setTodayMusicSlots(today);
+
+        if (user) {
+          const index = today.findIndex(n => n.created_by === user.id);
+          if (index !== -1) {
+            setActiveIndex(index);
+          } else {
+            setActiveIndex(0);
+          }
+        } else {
+          setActiveIndex(0);
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      setMusicError(err.message || 'Lưu bài nhạc thất bại. Vui lòng thử lại.');
+    } finally {
+      setIsSavingMusic(false);
+    }
+  };
+
+  const handleDeleteMusic = async (id: string) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa bài nhạc này?')) return;
+    try {
+      await musicService.deleteMusicNote(id);
+      await loadMusicData();
+      await loadMusicHistory();
+    } catch (err) {
+      alert('Xóa bài nhạc thất bại.');
+    }
+  };
+
+  useEffect(() => {
+    if (showAddForm) {
+      setTimeout(() => {
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [showAddForm]);
+
+  const handleMemoryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('File này chưa phải ảnh hợp lệ.');
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Ảnh hơi nặng, bạn chọn ảnh dưới 10MB nhé.');
+      e.target.value = '';
+      return;
+    }
+
+    if (!careSpace || !user) return;
+
+    setIsUploadingMemory(true);
+    try {
+      const url = await memoryService.uploadMemoryImage(file, careSpace.id, user.id);
+      if (url) {
+        const newMemory = await memoryService.addMemory({
+          care_space_id: careSpace.id,
+          created_by: user.id,
+          title: 'Kỷ niệm mới',
+          image_url: url,
+        });
+        
+        if (newMemory) {
+          setMemories(prev => [newMemory, ...prev]);
+        }
+      } else {
+        alert('Có lỗi khi tải ảnh lên, vui lòng thử lại.');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Tải ảnh thất bại.');
+    } finally {
+      setIsUploadingMemory(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteMemory = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!window.confirm('Bạn có chắc chắn muốn xóa ảnh này?')) return;
+    
+    try {
+      const success = await memoryService.deleteMemory(id);
+      if (success) {
+        setMemories(prev => prev.filter(m => m.id !== id));
+        if (activeMemoryId === id) {
+          setActiveMemoryId(null);
+        }
+      } else {
+        alert('Có lỗi xảy ra khi xóa ảnh.');
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   // Welcome Modal state
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -107,6 +311,10 @@ export const Dashboard = () => {
       const upcoming = data.filter(s => new Date(s.start_time) >= now).slice(0, 2);
       setUpcomingSchedules(upcoming);
     });
+
+    memoryService.getMemories().then(data => setMemories(data));
+
+    loadMusicData();
   }, [user]);
 
   const handleQuickMood = async (moodName: string) => {
@@ -200,6 +408,194 @@ export const Dashboard = () => {
             </div>
           </div>
         </Card>
+      </motion.div>
+
+      {/* Bài nhạc hôm nay */}
+      <motion.div variants={fadeUp}>
+        <div className="bg-white rounded-[24px] md:rounded-[32px] p-5 md:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] relative overflow-hidden mb-6">
+          {/* Card Header */}
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+            <div className="flex items-center gap-3">
+              <SpinningVinylIcon />
+              <h2 className="text-[17px] md:text-[19px] font-extrabold text-[#111827]">
+                Bài nhạc hôm nay
+              </h2>
+            </div>
+            
+            <div className="flex items-center gap-2 md:gap-3 ml-auto">
+              {todayMusicSlots.length > 1 && (
+                <div className="flex gap-1.5 items-center mr-1">
+                  {todayMusicSlots.map((slot, index) => (
+                    <button
+                      key={slot.id}
+                      onClick={() => setActiveIndex(index)}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        index === activeIndex ? 'w-4 bg-brand' : 'w-1.5 bg-[#e5e5e5] hover:bg-gray-300'
+                      }`}
+                      title={`Bài nhạc của ${profiles.find(p => p.user_id === slot.created_by)?.display_name || slot.creator_name || 'thành viên'}`}
+                    />
+                  ))}
+                </div>
+              )}
+              <button
+                onClick={() => setShowAddForm(!showAddForm)}
+                className="bg-[#e6f4ea] hover:bg-[#d0ebd6] text-[#1e7e34] font-bold px-3 md:px-4 py-1.5 md:py-2 rounded-full text-[13px] md:text-sm transition-colors shadow-sm whitespace-nowrap"
+              >
+                + Thêm bài nhạc
+              </button>
+            </div>
+          </div>
+
+          {/* Card Body / Carousel */}
+          {todayMusicSlots.length === 0 ? (
+            <div className="text-center py-6 text-text-soft">
+              <p className="text-sm italic">Chưa có bài nhạc nào hôm nay. Để lại một bài cho không gian chung bớt im lặng nhé.</p>
+            </div>
+          ) : (
+            <div className="relative">
+              <AnimatePresence mode="wait">
+                {todayMusicSlots[activeIndex] && (() => {
+                  const activeSlot = todayMusicSlots[activeIndex];
+                  const d = new Date(activeSlot.created_at);
+                  const formattedDate = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} - ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+                  const creatorName = profiles.find(p => p.user_id === activeSlot.created_by)?.display_name || activeSlot.creator_name || 'Thành viên';
+                  
+                  let embedUrl = activeSlot.spotify_url;
+                  try {
+                    if (embedUrl && embedUrl.includes('open.spotify.com/track/')) {
+                      const trackId = embedUrl.split('/track/')[1].split('?')[0];
+                      embedUrl = `https://open.spotify.com/embed/track/${trackId}?utm_source=generator`;
+                    }
+                  } catch (e) {
+                    // Ignore
+                  }
+
+                  return (
+                    <motion.div
+                      key={activeSlot.id}
+                      initial={{ opacity: 0, x: 15 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -15 }}
+                      transition={{ duration: 0.25 }}
+                      className="space-y-3"
+                    >
+                      {/* Spotify Embed or Link */}
+                      {embedUrl ? (
+                        <div className="rounded-[16px] overflow-hidden w-full relative">
+                           <iframe 
+                             src={embedUrl} 
+                             width="100%" 
+                             height="152" 
+                             frameBorder="0" 
+                             allowFullScreen={false} 
+                             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                             loading="lazy"
+                             className="block bg-[#282828]"
+                           ></iframe>
+                        </div>
+                      ) : (
+                        <div className="bg-canvas-cool/40 border border-canvas-dark/50 rounded-2xl p-4 flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <h3 className="font-extrabold text-text-main text-base md:text-lg leading-snug truncate">
+                              {activeSlot.title}
+                            </h3>
+                            {activeSlot.artist && (
+                              <p className="text-sm text-brand-accent font-semibold truncate mt-0.5">
+                                {activeSlot.artist}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Note if exists */}
+                      {activeSlot.note && (
+                        <p className="text-[13px] italic text-text-soft leading-relaxed px-1">
+                          "{activeSlot.note}"
+                        </p>
+                      )}
+                      
+                      {/* Creator info */}
+                      <div className="text-[12px] font-bold text-[#6b7280] px-1 mt-2">
+                        {creatorName} &bull; {formattedDate}
+                      </div>
+                    </motion.div>
+                  );
+                })()}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {/* Add Music Form */}
+          <AnimatePresence>
+            {showAddForm && (
+              <motion.div
+                ref={formRef}
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="border-t border-canvas-ceramic mt-4 pt-4 overflow-hidden"
+              >
+                <form onSubmit={handleSaveMusic} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-text-soft uppercase tracking-wider mb-1 flex items-center justify-between">
+                      <span>Link Spotify *</span>
+                      {urlWarning && <span className="text-[10px] text-amber-600 font-semibold">{urlWarning}</span>}
+                    </label>
+                    <input
+                      type="text"
+                      value={musicSpotifyUrl}
+                      onChange={e => handleUrlChange(e.target.value)}
+                      placeholder="https://open.spotify.com/track/..."
+                      required
+                      className="w-full bg-white border border-canvas-dark rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-text-soft uppercase tracking-wider mb-1">Ghi chú</label>
+                    <textarea
+                      value={musicNote}
+                      onChange={e => setMusicNote(e.target.value)}
+                      placeholder="Một lời nhắn nhỏ gửi kèm bài nhạc..."
+                      rows={2}
+                      className="w-full bg-white border border-canvas-dark rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand transition-colors resize-none"
+                    />
+                  </div>
+
+                  {musicError && (
+                    <div className="text-xs text-semantic-destructive bg-semantic-destructive/10 p-2.5 rounded-lg font-medium">
+                      {musicError}
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddForm(false);
+                        setMusicSpotifyUrl('');
+                        setMusicNote('');
+                        setMusicError('');
+                        setUrlWarning('');
+                      }}
+                      className="px-4 py-2 border border-canvas-dark rounded-xl text-xs font-bold text-text-soft hover:bg-gray-50 transition-colors"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingMusic}
+                      className="bg-brand hover:bg-brand-accent text-white font-bold px-4 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                    >
+                      {isSavingMusic ? 'Đang lưu...' : 'Lưu bài nhạc'}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </motion.div>
 
       <motion.div className="grid md:grid-cols-2 gap-6" variants={stagger}>
@@ -362,14 +758,89 @@ export const Dashboard = () => {
 
         {/* Memories — Ceramic */}
         <motion.div className="md:col-span-2" variants={fadeUp}>
-          <Card
-            animate={false}
-            className="bg-canvas-dark border-none shadow-card hover:shadow-card-hover transition-shadow cursor-pointer flex flex-col items-center justify-center py-10"
-          >
-            <ImageIcon className="w-10 h-10 text-brand mb-3 opacity-80" />
-            <h2 className="text-lg font-bold text-brand-house">Album Kỷ Niệm</h2>
-            <p className="text-sm text-text-soft mt-1">Lưu giữ những bức ảnh thật đẹp cùng nhau.</p>
-          </Card>
+          <input 
+            type="file" 
+            accept="image/*" 
+            ref={memoryFileInputRef} 
+            className="hidden" 
+            onChange={handleMemoryImageUpload} 
+          />
+          
+          {(() => {
+            const activeMemory = memories.find(m => m.id === activeMemoryId) || memories[0];
+            const bgImage = activeMemory?.image_url;
+            
+            return (
+              <Card
+                onClick={() => !isUploadingMemory && memoryFileInputRef.current?.click()}
+                animate={false}
+                className={`border-none shadow-card hover:shadow-card-hover transition-shadow overflow-hidden relative w-full flex flex-col items-center justify-center py-10 cursor-pointer ${bgImage ? '' : 'bg-canvas-dark'} ${isUploadingMemory ? 'opacity-70 pointer-events-none' : 'active:scale-[0.98]'}`}
+                style={bgImage ? {
+                  backgroundImage: `url(${bgImage})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                } : undefined}
+              >
+                {/* Overlay if there's an image */}
+                {bgImage && (
+                  <div className="absolute inset-0 bg-black/20 bg-gradient-to-t from-black/80 via-black/10 to-transparent"></div>
+                )}
+                
+                {/* Content */}
+                <div className="relative z-10 flex flex-col items-center text-center mt-auto pt-8">
+                  {!bgImage && !isUploadingMemory && (
+                    <ImageIcon className="w-10 h-10 text-brand mb-3 opacity-80" />
+                  )}
+                  {isUploadingMemory && (
+                    <RefreshCw className={`w-8 h-8 mb-3 opacity-80 animate-spin ${bgImage ? 'text-white' : 'text-brand'}`} />
+                  )}
+                  <h2 className={`text-xl font-bold ${bgImage ? 'text-white drop-shadow-md' : 'text-brand-house'}`}>
+                    Album Kỷ Niệm
+                  </h2>
+                  <p className={`text-sm mt-1 ${bgImage ? 'text-white/90 drop-shadow-md' : 'text-text-soft'}`}>
+                    {isUploadingMemory ? 'Đang thêm ảnh...' : (bgImage ? 'Nhấn để thêm ảnh mới' : 'Lưu giữ những bức ảnh thật đẹp cùng nhau.')}
+                  </p>
+                </div>
+              </Card>
+            );
+          })()}
+          
+          {/* Memories Grid (Storage) */}
+          <div className="mt-4 flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            <button
+              onClick={() => !isUploadingMemory && memoryFileInputRef.current?.click()}
+              className="w-16 h-16 shrink-0 rounded-xl border-2 border-dashed border-brand/40 text-brand/60 hover:text-brand hover:border-brand hover:bg-brand/5 flex items-center justify-center transition-colors"
+            >
+              <Plus className="w-6 h-6" />
+            </button>
+            
+            {memories.map(memory => {
+              const isActive = (activeMemoryId === memory.id) || (!activeMemoryId && memories[0]?.id === memory.id);
+              
+              return (
+                <div 
+                  key={memory.id} 
+                  onClick={() => setActiveMemoryId(memory.id)}
+                  className={`w-16 h-16 shrink-0 rounded-xl overflow-hidden bg-gray-100 shadow-sm relative group cursor-pointer transition-all ${isActive ? 'ring-2 ring-brand ring-offset-2' : 'hover:opacity-80'}`}
+                >
+                  {memory.image_url ? (
+                    <img src={memory.image_url} alt={memory.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <ImageIcon className="w-4 h-4 text-gray-400" />
+                    </div>
+                  )}
+                  
+                  <button
+                    onClick={(e) => handleDeleteMemory(e, memory.id)}
+                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </motion.div>
 
       </motion.div>
@@ -412,6 +883,111 @@ export const Dashboard = () => {
               >
                 Bắt đầu trải nghiệm thôi!
               </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* History Modal */}
+      <AnimatePresence>
+        {showHistoryModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/40 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl relative max-h-[85vh] flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-canvas-ceramic mb-4">
+                <h3 className="text-xl font-extrabold text-brand-house flex items-center gap-2">
+                  <Music className="w-5 h-5 text-brand" /> Lịch sử bài nhạc
+                </h3>
+                <button
+                  onClick={() => setShowHistoryModal(false)}
+                  className="p-1.5 hover:bg-gray-100 rounded-full transition-colors text-text-soft hover:text-text-main"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Scrollable List */}
+              <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+                {musicHistory.length === 0 ? (
+                  <div className="text-center py-12 text-text-soft">
+                    <Music className="w-10 h-10 mx-auto opacity-30 mb-2" />
+                    <p className="text-sm">Chưa có bài nhạc nào được chia sẻ.</p>
+                  </div>
+                ) : (
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {musicHistory.map(note => {
+                      const creator = profiles.find(p => p.user_id === note.created_by);
+                      const avatar = creator?.avatar_emoji || '🎵';
+                      const name = creator?.display_name || note.creator_name || 'Người dùng';
+                      const formattedDate = note.created_at
+                        ? format(parseISO(note.created_at), 'dd/MM/yyyy HH:mm')
+                        : '';
+                      const isMyNote = user && note.created_by === user.id;
+
+                      return (
+                        <div key={note.id} className="bg-canvas-cool/60 border border-canvas-dark rounded-2xl p-4 flex flex-col justify-between shadow-sm relative group hover:border-brand/35 transition-colors">
+                          <div>
+                            {/* Creator Info */}
+                            <div className="flex items-center gap-2 mb-2.5">
+                              <span className="text-xl">{avatar}</span>
+                              <div className="min-w-0">
+                                <div className="text-xs font-extrabold text-text-main truncate">{name}</div>
+                                <div className="text-[10px] text-text-soft">{formattedDate}</div>
+                              </div>
+                            </div>
+
+                            {/* Song Info */}
+                            <div className="mb-2">
+                              <div className="font-bold text-text-main text-sm leading-snug line-clamp-1">{note.title}</div>
+                              {note.artist && (
+                                <div className="text-xs text-brand-accent font-semibold truncate mt-0.5">{note.artist}</div>
+                              )}
+                            </div>
+
+                            {/* Note */}
+                            {note.note && (
+                              <div className="bg-white/80 border border-canvas-ceramic/60 p-2.5 rounded-xl text-xs italic text-text-soft mb-3 line-clamp-3">
+                                "{note.note}"
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Footer Actions */}
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-canvas-ceramic/50">
+                            {note.spotify_url ? (
+                              <a
+                                href={note.spotify_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2 py-1.5 rounded-lg transition-colors"
+                              >
+                                <ExternalLink className="w-3 h-3" /> Mở Spotify
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-text-soft italic">Không có link</span>
+                            )}
+
+                            {isMyNote && (
+                              <button
+                                onClick={() => handleDeleteMusic(note.id)}
+                                className="text-gray-400 hover:text-semantic-destructive p-1 rounded-lg hover:bg-semantic-destructive/5 transition-all"
+                                title="Xóa bài nhạc"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </motion.div>
           </div>
         )}

@@ -5,6 +5,7 @@ import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { useCareSpace } from '../contexts/CareSpaceContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Heart, Check } from 'lucide-react';
 
 const AVATAR_OPTIONS = [
@@ -24,11 +25,23 @@ const AVATAR_OPTIONS = [
   { icon: '🌙', label: 'Moon' },
   { icon: '🎈', label: 'Balloon' },
   { icon: '🍓', label: 'Strawberry' },
+  { icon: '🍵', label: 'Matcha' },
+  { icon: '📄', label: 'Paper' },
+  { icon: '☀️', label: 'Sun' },
+  { icon: '🦀', label: 'Crab' },
+  { icon: '🦂', label: 'Scorpion' },
+  { icon: '☁️', label: 'Cloud' },
+  { icon: '❄️', label: 'Snowflake' },
+  { icon: '🐰', label: 'Rabbit' },
 ];
 
 type Mode = 'select' | 'join' | 'create' | 'pick-avatar';
 
 export const Onboarding = () => {
+  const { user, loading: authLoading } = useAuth();
+  const { careSpace, loading: spaceLoading, joinSpace, createSpace } = useCareSpace();
+  const navigate = useNavigate();
+
   const [mode, setMode] = useState<Mode>('select');
   const [code, setCode] = useState(() => localStorage.getItem('friendcare_last_invite_code') || '');
   const [name, setName] = useState('');
@@ -36,8 +49,23 @@ export const Onboarding = () => {
   const [selectedAvatar, setSelectedAvatar] = useState<string>('🐱');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { joinSpace, createSpace } = useCareSpace();
-  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (authLoading || spaceLoading) return;
+    if (!user) {
+      navigate('/auth', { replace: true });
+    } else if (careSpace) {
+      navigate('/', { replace: true });
+    }
+  }, [user, authLoading, careSpace, spaceLoading, navigate]);
+
+  if (authLoading || spaceLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-canvas">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
+      </div>
+    );
+  }
 
   const goToAvatarPicker = (action: 'join' | 'create') => {
     if (action === 'join' && !code) return;
