@@ -127,9 +127,9 @@ export const Settings = () => {
       setAnnouncementTitle('');
       setAnnouncementMessage('');
       setAnnouncementStatus('Đã tắt thông báo.');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setAnnouncementStatus('Tắt thông báo thất bại.');
+      setAnnouncementStatus(`Tắt thông báo thất bại: ${err.message || 'Lỗi không xác định'}`);
     } finally {
       setIsDeactivating(false);
     }

@@ -805,42 +805,7 @@ export const Dashboard = () => {
             );
           })()}
           
-          {/* Memories Grid (Storage) */}
-          <div className="mt-4 flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
-            <button
-              onClick={() => !isUploadingMemory && memoryFileInputRef.current?.click()}
-              className="w-16 h-16 shrink-0 rounded-xl border-2 border-dashed border-brand/40 text-brand/60 hover:text-brand hover:border-brand hover:bg-brand/5 flex items-center justify-center transition-colors"
-            >
-              <Plus className="w-6 h-6" />
-            </button>
-            
-            {memories.map(memory => {
-              const isActive = (activeMemoryId === memory.id) || (!activeMemoryId && memories[0]?.id === memory.id);
-              
-              return (
-                <div 
-                  key={memory.id} 
-                  onClick={() => setActiveMemoryId(memory.id)}
-                  className={`w-16 h-16 shrink-0 rounded-xl overflow-hidden bg-gray-100 shadow-sm relative group cursor-pointer transition-all ${isActive ? 'ring-2 ring-brand ring-offset-2' : 'hover:opacity-80'}`}
-                >
-                  {memory.image_url ? (
-                    <img src={memory.image_url} alt={memory.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <ImageIcon className="w-4 h-4 text-gray-400" />
-                    </div>
-                  )}
-                  
-                  <button
-                    onClick={(e) => handleDeleteMemory(e, memory.id)}
-                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="w-4 h-4 text-white" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+
         </motion.div>
 
       </motion.div>

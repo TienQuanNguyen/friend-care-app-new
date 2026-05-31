@@ -67,8 +67,8 @@ export const announcementService = {
       .eq('is_active', true);
 
     if (error) {
-      console.error('Error deactivating announcement:', error);
-      throw error;
+      console.error('Error deactivating announcement detail:', error.message, error.details, error.hint);
+      throw new Error(error.message || 'Lỗi không xác định khi tắt thông báo.');
     }
   },
 
