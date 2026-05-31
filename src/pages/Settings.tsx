@@ -3,9 +3,11 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { useCareSpace } from '../contexts/CareSpaceContext';
-import { LogOut, Copy, Users, Smile, Check, UserCircle } from 'lucide-react';
+import { LogOut, Copy, Users, Smile, Check, UserCircle, Megaphone, Power, PowerOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Input } from '../components/ui/Input';
+import { isAdminEmail } from '../types';
+import { announcementService } from '../services/announcementService';
 
 const AVATAR_OPTIONS = [
   { icon: '📷', label: 'Camera' },
@@ -34,6 +36,27 @@ export const Settings = () => {
   const [editingName, setEditingName] = React.useState(myProfile?.display_name || '');
   const [isSavingName, setIsSavingName] = React.useState(false);
 
+  // Admin announcement state
+  const isAdmin = isAdminEmail(user?.email);
+  const [announcementTitle, setAnnouncementTitle] = React.useState('');
+  const [announcementMessage, setAnnouncementMessage] = React.useState('');
+  const [isSavingAnnouncement, setIsSavingAnnouncement] = React.useState(false);
+  const [isDeactivating, setIsDeactivating] = React.useState(false);
+  const [announcementStatus, setAnnouncementStatus] = React.useState('');
+  const [currentAnnouncement, setCurrentAnnouncement] = React.useState<{ id: string; title?: string | null; message: string } | null>(null);
+
+  // Load current active announcement if admin
+  React.useEffect(() => {
+    if (!isAdmin) return;
+    announcementService.getActiveAnnouncement().then(a => {
+      if (a) {
+        setCurrentAnnouncement(a);
+        setAnnouncementTitle(a.title || '');
+        setAnnouncementMessage(a.message);
+      }
+    }).catch(() => {});
+  }, [isAdmin]);
+
   const handleAvatarChange = (icon: string) => {
     setSelectedAvatar(icon);
     updateProfileAvatar(icon);
@@ -56,6 +79,51 @@ export const Settings = () => {
       alert('Cập nhật tên thất bại. Vui lòng thử lại.');
     } finally {
       setIsSavingName(false);
+    }
+  };
+
+  const handleSaveAnnouncement = async () => {
+    if (!announcementMessage.trim()) {
+      setAnnouncementStatus('Vui lòng nhập nội dung thông báo.');
+      return;
+    }
+    if (!user) return;
+
+    setIsSavingAnnouncement(true);
+    setAnnouncementStatus('');
+    try {
+      const result = await announcementService.createAnnouncement({
+        title: announcementTitle.trim() || undefined,
+        message: announcementMessage.trim(),
+        userId: user.id,
+        userEmail: user.email,
+      });
+      if (result) {
+        setCurrentAnnouncement(result);
+        setAnnouncementStatus('Đã cập nhật thông báo.');
+      }
+    } catch (err) {
+      console.error(err);
+      setAnnouncementStatus('Lưu thông báo thất bại.');
+    } finally {
+      setIsSavingAnnouncement(false);
+    }
+  };
+
+  const handleDeactivateAnnouncement = async () => {
+    setIsDeactivating(true);
+    setAnnouncementStatus('');
+    try {
+      await announcementService.deactivateCurrentAnnouncement();
+      setCurrentAnnouncement(null);
+      setAnnouncementTitle('');
+      setAnnouncementMessage('');
+      setAnnouncementStatus('Đã tắt thông báo.');
+    } catch (err) {
+      console.error(err);
+      setAnnouncementStatus('Tắt thông báo thất bại.');
+    } finally {
+      setIsDeactivating(false);
     }
   };
 
@@ -165,6 +233,75 @@ export const Settings = () => {
         </div>
       </Card>
 
+      {/* === ADMIN SECTION === */}
+      {isAdmin && (
+        <Card>
+          <h2 className="text-xl font-bold text-brand mb-2 flex items-center gap-2">
+            <Megaphone className="w-5 h-5" />
+            Thông báo hệ thống
+          </h2>
+          <p className="text-sm text-text-soft mb-5">
+            Nhập một thông báo để mọi người thấy khi mở app.
+          </p>
+
+          {currentAnnouncement && (
+            <div className="mb-5 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-800">
+              <span className="font-semibold">Thông báo đang bật:</span>{' '}
+              {currentAnnouncement.title || 'Không tiêu đề'} — {currentAnnouncement.message.slice(0, 80)}{currentAnnouncement.message.length > 80 ? '...' : ''}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-text-main mb-1">Tiêu đề</label>
+              <Input
+                value={announcementTitle}
+                onChange={(e) => setAnnouncementTitle(e.target.value)}
+                placeholder="Ví dụ: Cập nhật nhỏ hôm nay"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-text-main mb-1">Nội dung thông báo</label>
+              <textarea
+                value={announcementMessage}
+                onChange={(e) => setAnnouncementMessage(e.target.value)}
+                placeholder="Nhập nội dung muốn hiển thị cho mọi người..."
+                rows={4}
+                className="w-full rounded-xl border border-canvas-ceramic bg-white px-4 py-3 text-sm text-text-main placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent transition-all resize-none"
+              />
+            </div>
+
+            {announcementStatus && (
+              <p className={`text-sm font-medium ${announcementStatus.includes('thất bại') || announcementStatus.includes('Vui lòng') ? 'text-semantic-destructive' : 'text-green-600'}`}>
+                {announcementStatus}
+              </p>
+            )}
+
+            <div className="flex gap-3">
+              <Button
+                onClick={handleSaveAnnouncement}
+                disabled={isSavingAnnouncement}
+                className="bg-brand text-white flex items-center gap-2"
+              >
+                <Power className="w-4 h-4" />
+                {isSavingAnnouncement ? 'Đang lưu...' : 'Lưu thông báo'}
+              </Button>
+              {currentAnnouncement && (
+                <Button
+                  variant="outline"
+                  onClick={handleDeactivateAnnouncement}
+                  disabled={isDeactivating}
+                  className="!border-semantic-destructive !text-semantic-destructive hover:bg-semantic-destructive/10 flex items-center gap-2"
+                >
+                  <PowerOff className="w-4 h-4" />
+                  {isDeactivating ? 'Đang tắt...' : 'Tắt thông báo hiện tại'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card>
         <h2 className="text-xl font-bold text-semantic-destructive mb-4">Tài khoản</h2>
         <div className="space-y-4">
@@ -183,3 +320,4 @@ export const Settings = () => {
     </div>
   );
 };
+

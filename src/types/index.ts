@@ -107,3 +107,22 @@ export interface AuthUser {
   id: string;
   email: string;
 }
+
+// === Admin Announcement ===
+
+export interface AppAnnouncement {
+  id: string;
+  title?: string | null;
+  message: string;
+  is_active: boolean;
+  created_by?: string | null;
+  created_by_email?: string | null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
+export const ADMIN_EMAILS = ['tienquan0807@gmail.com'];
+
+export function isAdminEmail(email?: string | null): boolean {
+  return !!email && ADMIN_EMAILS.includes(email.trim().toLowerCase());
+}

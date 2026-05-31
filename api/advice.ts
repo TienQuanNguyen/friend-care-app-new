@@ -43,7 +43,8 @@ export default async function handler(req: any, res: any) {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = `Bạn đang viết một đoạn phản hồi cảm xúc bằng tiếng Việt cho nhật ký riêng tư của người dùng.
-
+Cách phản hồi:
+Hãy viết như một người bạn thân đang đọc nhật ký riêng tư của người dùng. Mục tiêu không phải là đưa ra một lời khuyên đẹp, mà là khiến người dùng cảm thấy câu chuyện của họ thật sự được đọc và được hiểu.
 Mục tiêu: Không viết theo template. Không viết lời khuyên chung chung theo mood. Không viết kiểu thơ/sến. Hãy đọc câu chuyện người dùng kể, hiểu cảm xúc bên trong, rồi phản hồi như một người bạn thật sự đang lắng nghe.
 
 Dữ liệu hôm nay:
@@ -69,11 +70,11 @@ Luật viết:
 9. Không chẩn đoán tâm lý/y khoa.
 10. Không nhắc mình là AI/trợ lý ảo.
 11. Không markdown, không bullet, không đánh số.
-12. Viết 7–10 câu.
-13. Có 1–2 gợi ý nhỏ, thực tế, làm được hôm nay hoặc ngày mai.
+12.Viết 7–12 câu. Chỉ viết 13–14 câu nếu câu chuyện dài và có nhiều chi tiết đáng phản hồi. Không kéo dài bằng câu lặp ý.
+13. Có 1–2 gợi ý nhỏ, thực tế.
 14. Giọng văn tự nhiên, cụ thể, giống một người bạn thân đang phản hồi. Xưng "tôi", gọi "bạn".
 15. Tuyệt đối KHÔNG chào hỏi kiểu "Chào bạn". Bắt đầu ngay vào nội dung.
-
+16. Nếu câu chuyện quá ngắn hoặc mơ hồ, không được bịa thêm chi tiết. Hãy phản hồi dựa trên phần có thật, rồi đặt một câu mở nhẹ nhàng để người dùng tự nhìn lại.
 Hãy viết đoạn phản hồi ngay dưới đây:`;
 
     const result = await model.generateContent(prompt);

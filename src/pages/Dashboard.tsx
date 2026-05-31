@@ -399,10 +399,11 @@ export const Dashboard = () => {
               </div>
 
               <div className="space-y-4 text-text-main text-[15px] leading-relaxed mb-8">
-                <p>Hello Sơn Duyên - người đáng ghét trong cuộc đời tao,</p>
-                <p>Hmmm không biết nói sao nữa nhưng sắp tới m về Việt Nam tao tạo viết ra một cái web nho nhỏ này và còn nhiều thiếu xót (như tao vậy).</p>
-                <p>Mong mày sẽ trải nghiệm tốt thời gian về này và có nhiều kỉ niệm đáng nhớ tại Việt Nam heheee.</p>
-                <p className="font-bold text-brand-accent pt-2">Thân tặng và ghét nhiều<br />Tiến Quân</p>
+                <p>Hello Sơn Duyên - một người đáng ghétt,</p>
+                <p>Không biết nói sao nữa nhưng thời gian tới quý khách về Việt Nam tôi tạo viết ra một cái web nho nhỏ này và còn nhiều thiếu xót (như tui vậy).</p>
+                <p>Mong quý khách sẽ trải nghiệm tốt thời gian này và có nhiều kỉ niệm đáng nhớ tại Việt Nam heheee.</p>
+                <p>Nếu có thắc mắc hoặc phàn nàn xin liên hệ: __ntquan</p>
+                <p className="font-bold text-brand-accent pt-2">Thân tặng và ghét nhiều lắm<br />Tiến Quân</p>
               </div>
 
               <button
