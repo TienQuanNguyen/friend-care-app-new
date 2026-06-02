@@ -1,11 +1,110 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+function buildPersonalRecentSummary(personalRecentEntries: any[]): string {
+  if (!personalRecentEntries || !Array.isArray(personalRecentEntries) || personalRecentEntries.length === 0) {
+    return 'Không có lịch sử cá nhân gần đây.';
+  }
+
+  const summaries = personalRecentEntries.map((e: any) => {
+    const dateStr = e.entry_date || e.created_at || '?';
+    const moodStr = e.mood || '?';
+    const energyVal = e.energy ?? e.energy_level ?? '?';
+    const noteStr = (e.note || '').trim().slice(0, 150) || 'Không chia sẻ';
+    const gratitudeStr = (e.gratitude || '').trim().slice(0, 100) || 'Không';
+    return `- Ngày ${dateStr}: Tâm trạng "${moodStr}", Năng lượng ${energyVal}/10. Ghi chú: "${noteStr}". Biết ơn: "${gratitudeStr}".`;
+  });
+
+  return summaries.join('\n');
+}
+
+function buildSharedRecentSummary(sharedRecentEntries: any[]): string {
+  if (!sharedRecentEntries || !Array.isArray(sharedRecentEntries) || sharedRecentEntries.length === 0) {
+    return 'Không có lịch sử của các thành viên khác gần đây.';
+  }
+
+  const summaries = sharedRecentEntries.map((e: any) => {
+    const creator = e.creator_name || 'Thành viên khác';
+    const dateStr = e.entry_date || e.created_at || '?';
+    const moodStr = e.mood || '?';
+    const energyVal = e.energy ?? e.energy_level ?? '?';
+    const noteStr = (e.note || '').trim().slice(0, 100) || 'Không chia sẻ';
+    return `- Ngày ${dateStr}, ${creator}: Tâm trạng "${moodStr}", Năng lượng ${energyVal}/10. Nhật ký viết: "${noteStr}".`;
+  });
+
+  return summaries.join('\n');
+}
+
+function buildSharedConcernContext(personalRecentEntries: any[], sharedRecentEntries: any[]): string {
+  if (!personalRecentEntries || !sharedRecentEntries) {
+    return 'Không có mối quan tâm chung rõ ràng.';
+  }
+
+  const keywords = [
+    'tháng 7', 'thang 7', 'việt nam', 'viet nam', 'gặp lại', 'gap lai',
+    'im lặng', 'im lang', 'mở lời', 'mo loi', 'gia đình', 'gia dinh',
+    'năm cuối', 'nam cuoi', 'hồ sơ', 'ho so', 'tương lai', 'tuong lai',
+    'học tập', 'hoc tap', 'công việc', 'cong viec', 'mưa', 'sài gòn', 'sai gon',
+    'cafe', 'món ăn', 'mon an', 'bài nhạc', 'bai nhac', 'kỷ niệm', 'ky niem',
+    'chia tay', 'người ấy', 'nguoi ay', 'seen', 'xa cách', 'xa cach'
+  ];
+
+  const extractKeywords = (entries: any[]) => {
+    const found = new Set<string>();
+    entries.forEach(e => {
+      const text = `${e.note || ''} ${e.gratitude || ''}`.toLowerCase();
+      keywords.forEach(kw => {
+        if (text.includes(kw)) {
+          found.add(kw);
+        }
+      });
+    });
+    return Array.from(found);
+  };
+
+  const personalTopics = extractKeywords(personalRecentEntries);
+  const sharedTopics = extractKeywords(sharedRecentEntries);
+
+  const normalize = (topic: string) => {
+    return topic
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .toLowerCase()
+      .trim();
+  };
+
+  const overlapNormalized = personalTopics.map(normalize).filter(t => 
+    sharedTopics.map(normalize).includes(t)
+  );
+
+  const overlapTopics = personalTopics.filter(t => 
+    overlapNormalized.includes(normalize(t))
+  );
+
+  if (overlapTopics.length > 0) {
+    const topicsStr = overlapTopics.map(t => `"${t}"`).join(', ');
+    return `Trong không gian chung gần đây, cả hai đều nhắc đến chủ đề liên quan đến ${topicsStr}. Đây là mối quan tâm chung, nhưng không đồng nghĩa cảm xúc của hai người giống nhau.`;
+  }
+
+  return 'Không có mối quan tâm chung rõ ràng.';
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed. Use POST.' });
   }
 
-  const { mood, energy_level, note, gratitude, recentEntries, variationSeed } = req.body || {};
+  const {
+    mood,
+    energy_level,
+    note,
+    gratitude,
+    currentUser,
+    personalRecentEntries,
+    sharedRecentEntries,
+    recentEntries,
+    variationSeed
+  } = req.body || {};
 
   if (!mood) {
     return res.status(400).json({ error: 'Missing required field: mood' });
@@ -27,55 +126,83 @@ export default async function handler(req: any, res: any) {
   const noteText = (note || '').trim().slice(0, 800) || 'Không chia sẻ gì thêm';
   const gratitudeText = (gratitude || '').trim().slice(0, 500) || 'Không chia sẻ gì thêm';
 
-  // Build recent entries summary
-  let recentEntriesSummary = 'Không có lịch sử gần đây.';
-  if (recentEntries && Array.isArray(recentEntries) && recentEntries.length > 0) {
-    recentEntriesSummary = recentEntries.slice(0, 14).map((e: any) => {
-      const entryNote = (e.note || '').trim().slice(0, 200) || 'Không';
-      const entryGratitude = (e.gratitude || '').trim().slice(0, 150) || 'Không';
-      const entryEnergy = e.energy ?? e.energy_level ?? '?';
-      return `- Ngày ${e.date || e.entry_date || '?'}: Tâm trạng "${e.mood || '?'}", Năng lượng ${entryEnergy}/10. Chuyện: "${entryNote}", Biết ơn: "${entryGratitude}"`;
-    }).join('\n');
+  const currentUserId = currentUser?.id || 'unknown';
+  const currentUserName = currentUser?.display_name || 'Người dùng';
+
+  let personalList = personalRecentEntries || [];
+  if (!personalList || (Array.isArray(personalList) && personalList.length === 0)) {
+    if (recentEntries && Array.isArray(recentEntries) && recentEntries.length > 0) {
+      personalList = recentEntries.map((e: any) => ({
+        entry_date: e.date || e.entry_date,
+        mood: e.mood,
+        energy_level: e.energy ?? e.energy_level,
+        note: e.note,
+        gratitude: e.gratitude
+      }));
+    }
   }
+
+  const personalRecentSummary = buildPersonalRecentSummary(personalList);
+  const sharedRecentSummary = buildSharedRecentSummary(sharedRecentEntries || []);
+  const sharedConcernSummary = buildSharedConcernContext(personalList, sharedRecentEntries || []);
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-    const prompt = `Bạn đang viết một đoạn phản hồi cảm xúc bằng tiếng Việt cho nhật ký riêng tư của người dùng.
-Cách phản hồi:
-Hãy viết như một người bạn thân đang đọc nhật ký riêng tư của người dùng. Mục tiêu không phải là đưa ra một lời khuyên đẹp, mà là khiến người dùng cảm thấy câu chuyện của họ thật sự được đọc và được hiểu.
-Mục tiêu: Không viết theo template. Không viết lời khuyên chung chung theo mood. Không viết kiểu thơ/sến. Hãy đọc câu chuyện người dùng kể, hiểu cảm xúc bên trong, rồi phản hồi như một người bạn thật sự đang lắng nghe.
+    const prompt = `Bạn đang viết lời khuyên cảm xúc cho người dùng hiện tại.
 
-Dữ liệu hôm nay:
-- Tâm trạng: ${mood}
-- Năng lượng: ${safeEnergy}/10
-- Câu chuyện hôm nay: "${noteText}"
-- Điều biết ơn hôm nay: "${gratitudeText}"
+Người dùng hiện tại:
+- id: ${currentUserId}
+- tên hiển thị: ${currentUserName}
 
-Ngữ cảnh gần đây:
-${recentEntriesSummary}
+Dữ liệu hôm nay của người dùng hiện tại:
+- mood: ${mood}
+- energy: ${safeEnergy}/10
+- câu chuyện hôm nay: "${noteText}"
+- điều biết ơn hôm nay: "${gratitudeText}"
+
+Lịch sử cá nhân gần đây của chính người dùng hiện tại:
+${personalRecentSummary}
+
+Ngữ cảnh chung từ các thành viên khác:
+${sharedRecentSummary}
+
+Mối quan tâm chung nếu có:
+${sharedConcernSummary}
 
 Variation seed: ${variationSeed || 'none'}
 
-Luật viết:
-1. Câu chuyện trong "Câu chuyện hôm nay" là trung tâm tuyệt đối.
-2. "Điều biết ơn hôm nay" là điểm tựa phụ, nối vào tự nhiên.
-3. Mood và energy chỉ là ngữ cảnh phụ, KHÔNG được dùng làm nội dung chính.
-4. Nếu "Câu chuyện hôm nay" có nội dung, 2 câu đầu phải đi thẳng vào câu chuyện đó.
-5. Nếu câu chuyện buồn nhưng mood là "Bình yên", hãy hiểu "bình yên" như một khoảng lặng sau nhiều ngày suy nghĩ, không phải vui vẻ.
-6. Nếu câu chuyện nhắc đến mưa, Sài Gòn, năm cuối, hồ sơ, gia đình, bạn bè, áp lực, tương lai, seen, người ấy, chia tay... phải phản hồi đúng các chi tiết đó.
-7. Nếu "Ngữ cảnh gần đây" cho thấy chủ đề lặp lại nhiều ngày, chỉ nhắc nhẹ 1 câu.
-8. Cấm tuyệt đối các cụm: "mọi việc rồi sẽ ổn" (nếu không có ngữ cảnh), "trân trọng hành trình", "ngọn đèn nhỏ", "món quà vô giá", "khi bạn chia sẻ rằng", "sự kiện này tác động trực tiếp", "lý giải vì sao", "giữa cuộc sống hối hả", "soi sáng và sưởi ấm tâm hồn".
-9. Không chẩn đoán tâm lý/y khoa.
-10. Không nhắc mình là AI/trợ lý ảo.
-11. Không markdown, không bullet, không đánh số.
-12.Viết 7–12 câu. Chỉ viết 13–14 câu nếu câu chuyện dài và có nhiều chi tiết đáng phản hồi. Không kéo dài bằng câu lặp ý.
-13. Có 1–2 gợi ý nhỏ, thực tế.
-14. Giọng văn tự nhiên, cụ thể, giống một người bạn thân đang phản hồi. Xưng "tôi", gọi "bạn".
-15. Tuyệt đối KHÔNG chào hỏi kiểu "Chào bạn". Bắt đầu ngay vào nội dung.
+Luật cực kỳ quan trọng:
+1. Chỉ xem “Dữ liệu hôm nay” và “Lịch sử cá nhân gần đây” là câu chuyện của người dùng hiện tại.
+2. “Ngữ cảnh chung từ các thành viên khác” chỉ là bối cảnh phụ.
+3. Không được nói vấn đề của thành viên khác như thể đó là vấn đề của người dùng hiện tại.
+4. Nếu nhắc đến dữ liệu của thành viên khác, đó là quan tâm và đang nhắc đến vấn đề của người còn lại.
+5. Chỉ viết “dạo này bạn hay...” nếu điều đó xuất hiện trong personalRecentEntries.
+6. Câu chuyện hôm nay của người dùng hiện tại là trung tâm tuyệt đối.
+7. Mood và energy chỉ là ngữ cảnh phụ, KHÔNG được dùng làm nội dung chính.
+8. Không viết theo template.
+9. Không dùng markdown/bullet, không đánh số.
+10. Bắt đầu ngay vào nội dung, tuyệt đối không chào hỏi kiểu "Chào bạn".
+11. Viết 7–12 câu. Chỉ viết 13–14 câu nếu câu chuyện dài và có nhiều chi tiết đáng phản hồi. Không kéo dài bằng câu lặp ý.
+12. Có 1–2 gợi ý nhỏ, thực tế.
+13. Giọng văn tự nhiên, cụ thể, giống một người bạn thân đang phản hồi. Xưng "tôi", gọi "bạn".
+14. Không chẩn đoán tâm lý/y khoa.
+15. Không nhắc mình là AI/trợ lý ảo.
 16. Nếu câu chuyện quá ngắn hoặc mơ hồ, không được bịa thêm chi tiết. Hãy phản hồi dựa trên phần có thật, rồi đặt một câu mở nhẹ nhàng để người dùng tự nhìn lại.
-Hãy viết đoạn phản hồi ngay dưới đây:`;
+17. Luật sử dụng mối quan tâm chung:
+   - Nếu sharedConcernSummary có nội dung (không phải "Không có mối quan tâm chung rõ ràng."), có thể nhắc tối đa 1–2 câu.
+   - Chỉ nhắc nếu nó giúp lời khuyên cho current user cụ thể và tinh tế hơn.
+   - Không biến shared concern thành kết luận chắc chắn.
+   - Dùng cách nói mềm:
+     - “Có vẻ chủ đề này cũng đang xuất hiện trong không gian chung gần đây...”
+     - “Tôi thấy đây không hẳn là chuyện riêng lẻ của bạn, nhưng cách bạn trải qua nó vẫn là điều cần được lắng nghe trước.”
+   - Không dùng cách nói áp đặt:
+     - “Cả hai đều đang...”
+     - “Hai bạn chắc chắn...”
+     - “Người kia cũng cảm thấy giống bạn...”
+
+Hãy viết đoạn phản hồi cảm xúc bằng tiếng Việt ngay dưới đây:`;
 
     const result = await model.generateContent(prompt);
     const adviceText = result.response.text().trim();

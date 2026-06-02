@@ -167,24 +167,65 @@ export const MoodJournal = () => {
     let advice = '';
 
     try {
-      // Send up to 14 recent entries for AI context
-      const userRecentEntries = entries
+      const userProfile = getProfile(user.id);
+      const currentUser = {
+        id: user.id,
+        display_name: userProfile?.display_name || user.email.split('@')[0],
+        email: user.email
+      };
+
+      const mappedEntries = entries.map(e => ({
+        id: e.id,
+        created_by: e.created_by,
+        creator_name: getProfile(e.created_by)?.display_name || 'Thành viên khác',
+        created_at: e.created_at,
+        entry_date: e.entry_date,
+        mood: e.mood,
+        energy_level: e.energy_level,
+        note: e.note,
+        gratitude: e.gratitude,
+        ai_advice: e.ai_advice
+      }));
+
+      const personalRecentEntries = mappedEntries
         .filter(e => e.created_by === user.id)
-        .slice(0, 14)
-        .map(e => ({
-          date: e.entry_date,
-          mood: e.mood,
-          energy: e.energy_level,
-          note: e.note,
-          gratitude: e.gratitude
-        }));
+        .slice(0, 14);
+
+      const sharedRecentEntries = mappedEntries
+        .filter(e => e.created_by !== user.id)
+        .slice(0, 10);
+
+      if (import.meta.env.DEV) {
+        console.debug("[Mood AI Context]", {
+          currentUserId: currentUser.id,
+          currentUserName: currentUser.display_name,
+          personalRecentCount: personalRecentEntries.length,
+          sharedRecentCount: sharedRecentEntries.length,
+          mood: selectedMood,
+          energy_level: energyLevel,
+          hasNote: !!note,
+          hasGratitude: !!gratitude
+        });
+      }
+
+      // Maintain legacy mapping for backward compatibility
+      const legacyRecentEntries = personalRecentEntries.map(e => ({
+        date: e.entry_date,
+        mood: e.mood,
+        energy: e.energy_level,
+        note: e.note,
+        gratitude: e.gratitude
+      }));
 
       advice = await adviceService.getAdvice({
+        currentUser,
         mood: selectedMood,
         energy_level: energyLevel,
         note,
         gratitude,
-        recentEntries: userRecentEntries,
+        personalRecentEntries,
+        sharedRecentEntries,
+        recentEntries: legacyRecentEntries,
         variationSeed: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       });
       setGeneratedAdvice(advice);
@@ -228,23 +269,66 @@ export const MoodJournal = () => {
     if (!user) return;
     setRetryingEntryId(entry.id);
     try {
-      const userRecentEntries = entries
+      const userProfile = getProfile(user.id);
+      const currentUser = {
+        id: user.id,
+        display_name: userProfile?.display_name || user.email.split('@')[0],
+        email: user.email
+      };
+
+      const mappedEntries = entries.map(e => ({
+        id: e.id,
+        created_by: e.created_by,
+        creator_name: getProfile(e.created_by)?.display_name || 'Thành viên khác',
+        created_at: e.created_at,
+        entry_date: e.entry_date,
+        mood: e.mood,
+        energy_level: e.energy_level,
+        note: e.note,
+        gratitude: e.gratitude,
+        ai_advice: e.ai_advice
+      }));
+
+      // Exclude current entry when retrying advice to avoid duplicates
+      const personalRecentEntries = mappedEntries
         .filter(e => e.created_by === user.id && e.id !== entry.id)
-        .slice(0, 14)
-        .map(e => ({
-          date: e.entry_date,
-          mood: e.mood,
-          energy: e.energy_level,
-          note: e.note,
-          gratitude: e.gratitude
-        }));
+        .slice(0, 14);
+
+      const sharedRecentEntries = mappedEntries
+        .filter(e => e.created_by !== user.id && e.id !== entry.id)
+        .slice(0, 10);
+
+      if (import.meta.env.DEV) {
+        console.debug("[Mood AI Context] Retry", {
+          currentUserId: currentUser.id,
+          currentUserName: currentUser.display_name,
+          personalRecentCount: personalRecentEntries.length,
+          sharedRecentCount: sharedRecentEntries.length,
+          mood: entry.mood,
+          energy_level: entry.energy_level,
+          hasNote: !!entry.note,
+          hasGratitude: !!entry.gratitude
+        });
+      }
+
+      // Maintain legacy mapping for backward compatibility
+      const legacyRecentEntries = personalRecentEntries.map(e => ({
+        date: e.entry_date,
+        mood: e.mood,
+        energy: e.energy_level,
+        note: e.note,
+        gratitude: e.gratitude
+      }));
 
       const advice = await adviceService.getAdvice({
+        currentUser,
         mood: entry.mood,
         energy_level: entry.energy_level,
         note: entry.note,
         gratitude: entry.gratitude,
-        recentEntries: userRecentEntries,
+        personalRecentEntries,
+        sharedRecentEntries,
+        recentEntries: legacyRecentEntries,
         variationSeed: `retry-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       });
 

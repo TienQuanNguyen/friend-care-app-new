@@ -7,10 +7,38 @@
  */
 
 export interface AdviceInput {
+  currentUser?: {
+    id: string;
+    display_name?: string;
+    email?: string;
+  };
   mood: string;
   energy_level: number;
   note?: string;
   gratitude?: string;
+  personalRecentEntries?: Array<{
+    id?: string;
+    created_by: string;
+    creator_name?: string;
+    created_at?: string;
+    entry_date?: string;
+    mood: string;
+    energy_level: number;
+    note?: string;
+    gratitude?: string;
+    ai_advice?: string;
+  }>;
+  sharedRecentEntries?: Array<{
+    id?: string;
+    created_by: string;
+    creator_name?: string;
+    created_at?: string;
+    entry_date?: string;
+    mood: string;
+    energy_level: number;
+    note?: string;
+    gratitude?: string;
+  }>;
   recentEntries?: Array<{
     date: string;
     mood: string;
@@ -42,12 +70,17 @@ export const adviceService = {
     const note = input.note || '';
     const gratitude = input.gratitude || '';
     const recentEntries = Array.isArray(input.recentEntries) ? input.recentEntries : [];
+    const personalRecentEntries = Array.isArray(input.personalRecentEntries) ? input.personalRecentEntries : [];
+    const sharedRecentEntries = Array.isArray(input.sharedRecentEntries) ? input.sharedRecentEntries : [];
     const variationSeed = input.variationSeed || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
     if (import.meta.env.DEV) {
       console.debug('[adviceService] Sending to /api/advice:', {
+        currentUser: input.currentUser,
         mood, energy_level, note: note.slice(0, 50), gratitude: gratitude.slice(0, 50),
-        recentEntriesCount: recentEntries.length, variationSeed
+        personalRecentEntriesCount: personalRecentEntries.length,
+        sharedRecentEntriesCount: sharedRecentEntries.length,
+        variationSeed
       });
     }
 
@@ -59,10 +92,13 @@ export const adviceService = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          currentUser: input.currentUser,
           mood,
           energy_level,
           note,
           gratitude,
+          personalRecentEntries,
+          sharedRecentEntries,
           recentEntries,
           variationSeed
         }),

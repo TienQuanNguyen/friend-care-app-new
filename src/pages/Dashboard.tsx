@@ -8,7 +8,8 @@ import { scheduleService } from '../services/scheduleService';
 import { foodService } from '../services/foodService';
 import { musicService } from '../services/musicService';
 import { memoryService } from '../services/memoryService';
-import { MoodEntry, Schedule, FoodPlace, MusicNote, Memory } from '../types';
+import { loveNoteService } from '../services/loveNoteService';
+import { MoodEntry, Schedule, FoodPlace, MusicNote, Memory, LoveNote } from '../types';
 import { format, parseISO, isToday } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
@@ -268,20 +269,29 @@ export const Dashboard = () => {
   // Welcome Modal state
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [dailyMessage, setDailyMessage] = useState<string>('');
+  const [todayLoveNotes, setTodayLoveNotes] = useState<LoveNote[]>([]);
+  const [currentLoveNoteIndex, setCurrentLoveNoteIndex] = useState(0);
 
-  const pickRandomMessage = () => {
-    setDailyMessage(prev => {
-      let newMsg = '';
-      do {
-        newMsg = DAILY_MESSAGES[Math.floor(Math.random() * DAILY_MESSAGES.length)];
-      } while (newMsg === prev && DAILY_MESSAGES.length > 1);
-      return newMsg;
-    });
+  const pickRandomMessage = (notesList?: LoveNote[]) => {
+    const listToUse = notesList !== undefined ? notesList : todayLoveNotes;
+    if (listToUse.length > 0) {
+      setCurrentLoveNoteIndex(prevIndex => {
+        const nextIndex = (prevIndex + 1) % listToUse.length;
+        setDailyMessage(listToUse[nextIndex].message);
+        return nextIndex;
+      });
+    } else {
+      setDailyMessage(prev => {
+        let newMsg = '';
+        do {
+          newMsg = DAILY_MESSAGES[Math.floor(Math.random() * DAILY_MESSAGES.length)];
+        } while (newMsg === prev && DAILY_MESSAGES.length > 1);
+        return newMsg;
+      });
+    }
   };
 
   useEffect(() => {
-    pickRandomMessage();
-
     const hasSeen = localStorage.getItem('friendcare_has_seen_welcome_son_duyen');
     if (!hasSeen) {
       setTimeout(() => setShowWelcomeModal(true), 500);
@@ -302,6 +312,27 @@ export const Dashboard = () => {
         if (todayEntries.length > 0) {
           setHasCheckedInToday(true);
         }
+      }
+    });
+
+    loveNoteService.getNotes().then(data => {
+      const todayNotes = data.filter(n => 
+        isToday(parseISO(n.created_at)) && 
+        n.message !== 'Đã ghé thăm không gian ❤️'
+      );
+      setTodayLoveNotes(todayNotes);
+      if (todayNotes.length > 0) {
+        setDailyMessage(todayNotes[0].message);
+        setCurrentLoveNoteIndex(0);
+      } else {
+        // Fallback to random default message
+        setDailyMessage(prev => {
+          let newMsg = '';
+          do {
+            newMsg = DAILY_MESSAGES[Math.floor(Math.random() * DAILY_MESSAGES.length)];
+          } while (newMsg === prev && DAILY_MESSAGES.length > 1);
+          return newMsg;
+        });
       }
     });
 
