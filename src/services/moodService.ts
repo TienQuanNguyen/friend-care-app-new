@@ -51,5 +51,17 @@ export const moodService = {
       console.error('Error updating mood entry advice:', error);
       throw error;
     }
+  },
+
+  async updateReactions(id: string, reactions: Record<string, string>): Promise<void> {
+    const { error } = await supabase
+      .from('mood_entries')
+      .update({ reactions })
+      .eq('id', id);
+      
+    if (error) {
+      console.error('Error updating mood entry reactions:', error);
+      throw error;
+    }
   }
 };

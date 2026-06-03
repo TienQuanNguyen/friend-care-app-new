@@ -31,6 +31,7 @@ export interface MoodEntry {
   note?: string;
   gratitude?: string;
   ai_advice?: string;
+  reactions?: Record<string, string>;
   entry_date: string; // YYYY-MM-DD
   created_at: string;
   updated_at: string;

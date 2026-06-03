@@ -27,6 +27,8 @@ import {
 import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 
+const REACTION_EMOJIS = ['❤️', '👍', '🥰', '😆', '😮', '😢', '😡'];
+
 const MOODS_WITH_ICONS: { name: MoodType; icon: React.ComponentType<{ className?: string }> }[] = [
   { name: 'Hạnh phúc', icon: Sparkles },
   { name: 'Buồn bã', icon: Frown },
@@ -119,6 +121,7 @@ export const MoodJournal = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
   const [retryingEntryId, setRetryingEntryId] = useState<string | null>(null);
+  const [activeReactionPickerId, setActiveReactionPickerId] = useState<string | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedEntries(prev => {
@@ -346,6 +349,32 @@ export const MoodJournal = () => {
       console.error('[RetryAdvice] Failed:', err);
     } finally {
       setRetryingEntryId(null);
+    }
+  };
+
+  const handleReact = async (entryId: string, emoji: string) => {
+    if (!user) return;
+    
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
+
+    const currentReactions = entry.reactions || {};
+    const newReactions = { ...currentReactions };
+
+    if (newReactions[user.id] === emoji) {
+      delete newReactions[user.id];
+    } else {
+      newReactions[user.id] = emoji;
+    }
+
+    try {
+      // Optimistic update
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, reactions: newReactions } : e));
+      await moodService.updateReactions(entryId, newReactions);
+    } catch (err) {
+      console.error('Failed to update reaction:', err);
+      // Revert on failure
+      setEntries(prev => prev.map(e => e.id === entryId ? e : e));
     }
   };
 
@@ -631,6 +660,87 @@ export const MoodJournal = () => {
                             <p className={`text-[14px] text-text-main leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>{entry.gratitude}</p>
                           </div>
                         )}
+
+                        {/* Reactions Row */}
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-canvas-cool/60 relative">
+                          {/* Current active reactions list */}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {Object.entries(entry.reactions || {}).length > 0 ? (
+                              Object.entries(entry.reactions || {}).map(([uid, emoji]) => {
+                                const reactorProfile = getProfile(uid);
+                                return (
+                                  <div
+                                    key={uid}
+                                    className="inline-flex items-center gap-1 bg-canvas-cool px-2.5 py-1 rounded-full text-xs font-semibold border border-canvas-dark shadow-sm cursor-help group/tooltip relative"
+                                  >
+                                    <span>{reactorProfile?.avatar_emoji || '👤'}</span>
+                                    <span className="text-sm">{emoji}</span>
+                                    {/* Tooltip */}
+                                    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:block bg-gray-900/90 text-white text-[10px] font-bold py-1 px-2 rounded shadow-lg whitespace-nowrap z-50">
+                                      {reactorProfile?.display_name || 'Thành viên'}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <span className="text-xs text-text-soft italic">Chưa có cảm xúc</span>
+                            )}
+                          </div>
+
+                          {/* React Trigger & Floating Panel */}
+                          <div
+                            className="relative"
+                            onMouseEnter={() => setActiveReactionPickerId(entry.id)}
+                            onMouseLeave={() => setActiveReactionPickerId(null)}
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveReactionPickerId(prev => prev === entry.id ? null : entry.id);
+                              }}
+                              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                                entry.reactions?.[user?.id || '']
+                                  ? 'bg-brand-light text-brand border-brand-light shadow-sm'
+                                  : 'bg-white text-text-soft border-canvas-dark hover:border-brand hover:text-text-main'
+                              }`}
+                            >
+                              <span>{entry.reactions?.[user?.id || ''] || 'Bày tỏ'}</span>
+                              <span className="text-brand-accent">✨</span>
+                            </button>
+
+                            {/* Floating Reactions Bar (Facebook style) */}
+                            <AnimatePresence>
+                              {activeReactionPickerId === entry.id && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                  animate={{ opacity: 1, y: -52, scale: 1 }}
+                                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                  transition={{ type: 'spring', stiffness: 380, damping: 22 }}
+                                  className="absolute right-0 top-0 bg-white border border-canvas-dark shadow-xl rounded-full px-3 py-2 flex items-center gap-2 z-50 whitespace-nowrap"
+                                  style={{ transformOrigin: 'bottom right' }}
+                                >
+                                  {REACTION_EMOJIS.map(emoji => (
+                                    <motion.button
+                                      key={emoji}
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleReact(entry.id, emoji);
+                                        setActiveReactionPickerId(null);
+                                      }}
+                                      whileHover={{ scale: 1.35 }}
+                                      whileTap={{ scale: 0.93 }}
+                                      className="text-xl transition-transform hover:-translate-y-1 block p-0.5"
+                                    >
+                                      {emoji}
+                                    </motion.button>
+                                  ))}
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="mt-4 pt-4 border-t border-canvas-cool flex flex-col items-start">
