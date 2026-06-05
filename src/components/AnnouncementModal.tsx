@@ -6,27 +6,52 @@ import { AppAnnouncement } from '../types';
 import { Megaphone } from 'lucide-react';
 
 export const AnnouncementModal: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [announcement, setAnnouncement] = useState<AppAnnouncement | null>(null);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    let isMounted = true;
+
+    if (loading) return;
+
+    if (!user) {
+      setAnnouncement(null);
+      setIsVisible(false);
+      return;
+    }
 
     const fetchAnnouncement = async () => {
       try {
         const active = await announcementService.getActiveAnnouncement();
-        if (active && !announcementService.hasSeenAnnouncement(active.id)) {
-          setAnnouncement(active);
-          setIsVisible(true);
+        const hasSeenInSession = active
+          ? announcementService.hasSeenAnnouncement(active.id)
+          : false;
+        const shouldShow = Boolean(active && !hasSeenInSession);
+
+        if (import.meta.env.DEV) {
+          console.debug('[Announcement]', {
+            activeAnnouncementId: active?.id,
+            hasSeenInSession,
+            shouldShow,
+          });
         }
+
+        if (!isMounted) return;
+
+        setAnnouncement(active);
+        setIsVisible(shouldShow);
       } catch (err) {
         console.warn('[AnnouncementModal] Failed to fetch announcement:', err);
       }
     };
 
     fetchAnnouncement();
-  }, [user]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loading, user?.id]);
 
   const handleDismiss = () => {
     if (announcement) {

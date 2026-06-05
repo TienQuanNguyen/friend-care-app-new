@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, Variants, AnimatePresence } from 'framer-motion';
 import { Card } from '../components/ui/Card';
 import { useCareSpace } from '../contexts/CareSpaceContext';
-import { Smile, Calendar as CalendarIcon, Heart, Users, Flame, Utensils, Image as ImageIcon, Sparkles, X, RefreshCw, Disc, Disc3, Plus, ExternalLink, Music, Trash2 } from 'lucide-react';
+import { Smile, Calendar as CalendarIcon, Heart, Users, Utensils, Image as ImageIcon, Sparkles, X, RefreshCw, Disc3, Plus, ExternalLink, Music, Trash2 } from 'lucide-react';
 import { moodService } from '../services/moodService';
 import { scheduleService } from '../services/scheduleService';
 import { foodService } from '../services/foodService';
@@ -23,6 +23,37 @@ const stagger: Variants = {
 const fadeUp: Variants = {
   initial: { opacity: 0, y: 14 },
   animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' as const } },
+};
+
+type MemoryFramePosition = {
+  x: number;
+  y: number;
+};
+
+const DEFAULT_MEMORY_FRAME_POSITION: MemoryFramePosition = { x: 0, y: 0 };
+const MEMORY_FRAME_POSITIONS_STORAGE_KEY = 'friendcare_memory_frame_positions';
+const clampMemoryFramePosition = (value: number) => Math.max(-35, Math.min(35, value));
+
+const loadStoredMemoryFramePositions = (): Record<string, MemoryFramePosition> => {
+  try {
+    const rawPositions = localStorage.getItem(MEMORY_FRAME_POSITIONS_STORAGE_KEY);
+    if (!rawPositions) return {};
+
+    const parsedPositions = JSON.parse(rawPositions) as Record<string, Partial<MemoryFramePosition>>;
+    return Object.fromEntries(
+      Object.entries(parsedPositions)
+        .filter(([, position]) => typeof position.x === 'number' && typeof position.y === 'number')
+        .map(([id, position]) => [
+          id,
+          {
+            x: clampMemoryFramePosition(position.x as number),
+            y: clampMemoryFramePosition(position.y as number),
+          },
+        ])
+    );
+  } catch {
+    return {};
+  }
 };
 
 const DAILY_MESSAGES = [
@@ -74,7 +105,19 @@ export const Dashboard = () => {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [isUploadingMemory, setIsUploadingMemory] = useState(false);
   const [activeMemoryId, setActiveMemoryId] = useState<string | null>(null);
+  const [memoryFramePositions, setMemoryFramePositions] = useState<Record<string, MemoryFramePosition>>(
+    () => loadStoredMemoryFramePositions()
+  );
+  const [isDraggingMemoryFrame, setIsDraggingMemoryFrame] = useState(false);
   const memoryFileInputRef = React.useRef<HTMLInputElement>(null);
+  const memoryFrameDragRef = React.useRef<{
+    id: string;
+    startX: number;
+    startY: number;
+    origin: MemoryFramePosition;
+    width: number;
+    height: number;
+  } | null>(null);
 
   // Music notes state
   const [todayMusicSlots, setTodayMusicSlots] = useState<MusicNote[]>([]);
@@ -96,6 +139,10 @@ export const Dashboard = () => {
   const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
   const [isSavingMood, setIsSavingMood] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem(MEMORY_FRAME_POSITIONS_STORAGE_KEY, JSON.stringify(memoryFramePositions));
+  }, [memoryFramePositions]);
 
   const loadMusicData = async () => {
     try {
@@ -203,19 +250,14 @@ export const Dashboard = () => {
     }
   }, [showAddForm]);
 
-  const handleMemoryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const handleMemoryFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       alert('File này chưa phải ảnh hợp lệ.');
-      e.target.value = '';
       return;
     }
 
     if (file.size > 10 * 1024 * 1024) {
       alert('Ảnh hơi nặng, bạn chọn ảnh dưới 10MB nhé.');
-      e.target.value = '';
       return;
     }
 
@@ -234,6 +276,11 @@ export const Dashboard = () => {
         
         if (newMemory) {
           setMemories(prev => [newMemory, ...prev]);
+          setActiveMemoryId(newMemory.id);
+          setMemoryFramePositions(prev => ({
+            ...prev,
+            [newMemory.id]: DEFAULT_MEMORY_FRAME_POSITION,
+          }));
         }
       } else {
         alert('Có lỗi khi tải ảnh lên, vui lòng thử lại.');
@@ -243,8 +290,75 @@ export const Dashboard = () => {
       alert('Tải ảnh thất bại.');
     } finally {
       setIsUploadingMemory(false);
-      e.target.value = '';
     }
+  };
+
+  const handleMemoryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await handleMemoryFile(file);
+    }
+    e.target.value = '';
+  };
+
+  const handleMemoryDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const file = event.dataTransfer.files?.[0];
+    if (file && !isUploadingMemory) {
+      void handleMemoryFile(file);
+    }
+  };
+
+  const startMemoryFrameDrag = (event: React.PointerEvent<HTMLDivElement>, memoryId?: string) => {
+    if (!memoryId || isUploadingMemory) return;
+
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    memoryFrameDragRef.current = {
+      id: memoryId,
+      startX: event.clientX,
+      startY: event.clientY,
+      origin: memoryFramePositions[memoryId] || DEFAULT_MEMORY_FRAME_POSITION,
+      width: rect.width || 1,
+      height: rect.height || 1,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setIsDraggingMemoryFrame(true);
+  };
+
+  const handleMemoryFrameDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = memoryFrameDragRef.current;
+    if (!drag) return;
+
+    const dx = ((event.clientX - drag.startX) / drag.width) * 70;
+    const dy = ((event.clientY - drag.startY) / drag.height) * 70;
+
+    setMemoryFramePositions(prev => ({
+      ...prev,
+      [drag.id]: {
+        x: clampMemoryFramePosition(drag.origin.x + dx),
+        y: clampMemoryFramePosition(drag.origin.y + dy),
+      },
+    }));
+  };
+
+  const stopMemoryFrameDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!memoryFrameDragRef.current) return;
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    memoryFrameDragRef.current = null;
+    setIsDraggingMemoryFrame(false);
+  };
+
+  const resetMemoryFramePosition = (event: React.MouseEvent, memoryId: string) => {
+    event.stopPropagation();
+    setMemoryFramePositions(prev => ({
+      ...prev,
+      [memoryId]: DEFAULT_MEMORY_FRAME_POSITION,
+    }));
   };
 
   const handleDeleteMemory = async (e: React.MouseEvent, id: string) => {
@@ -255,6 +369,11 @@ export const Dashboard = () => {
       const success = await memoryService.deleteMemory(id);
       if (success) {
         setMemories(prev => prev.filter(m => m.id !== id));
+        setMemoryFramePositions(prev => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
         if (activeMemoryId === id) {
           setActiveMemoryId(null);
         }
@@ -787,7 +906,7 @@ export const Dashboard = () => {
           </Card>
         </motion.div>
 
-        {/* Memories — Ceramic */}
+        {/* Memories photo frame */}
         <motion.div className="md:col-span-2" variants={fadeUp}>
           <input 
             type="file" 
@@ -799,40 +918,139 @@ export const Dashboard = () => {
           
           {(() => {
             const activeMemory = memories.find(m => m.id === activeMemoryId) || memories[0];
-            const bgImage = activeMemory?.image_url;
+            const frameImage = activeMemory?.image_url;
+            const framePosition = activeMemory
+              ? memoryFramePositions[activeMemory.id] || DEFAULT_MEMORY_FRAME_POSITION
+              : DEFAULT_MEMORY_FRAME_POSITION;
+            const objectPosition = `${50 - framePosition.x}% ${50 - framePosition.y}%`;
             
             return (
-              <Card
-                onClick={() => !isUploadingMemory && memoryFileInputRef.current?.click()}
-                animate={false}
-                className={`border-none shadow-card hover:shadow-card-hover transition-shadow overflow-hidden relative w-full flex flex-col items-center justify-center py-10 cursor-pointer ${bgImage ? '' : 'bg-canvas-dark'} ${isUploadingMemory ? 'opacity-70 pointer-events-none' : 'active:scale-[0.98]'}`}
-                style={bgImage ? {
-                  backgroundImage: `url(${bgImage})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                } : undefined}
-              >
-                {/* Overlay if there's an image */}
-                {bgImage && (
-                  <div className="absolute inset-0 bg-black/20 bg-gradient-to-t from-black/80 via-black/10 to-transparent"></div>
-                )}
-                
-                {/* Content */}
-                <div className="relative z-10 flex flex-col items-center text-center mt-auto pt-8">
-                  {!bgImage && !isUploadingMemory && (
-                    <ImageIcon className="w-10 h-10 text-brand mb-3 opacity-80" />
+              <div className="w-full pt-2 pb-4">
+                <div className="mx-auto max-w-[740px]">
+                  <div className="relative rotate-[-1.5deg] bg-white p-2.5 md:p-3 shadow-[0_18px_45px_rgba(15,23,42,0.16)] ring-1 ring-black/10">
+                    <div
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={handleMemoryDrop}
+                      onPointerDown={(event) => startMemoryFrameDrag(event, activeMemory?.id)}
+                      onPointerMove={handleMemoryFrameDrag}
+                      onPointerUp={stopMemoryFrameDrag}
+                      onPointerCancel={stopMemoryFrameDrag}
+                      className={`relative aspect-[4/3] w-full overflow-hidden bg-canvas-dark ring-1 ring-black/10 ${
+                        frameImage
+                          ? `${isDraggingMemoryFrame ? 'cursor-grabbing' : 'cursor-grab'} touch-none`
+                          : ''
+                      } ${isUploadingMemory ? 'pointer-events-none opacity-70' : ''}`}
+                    >
+                      {frameImage ? (
+                        <img
+                          src={frameImage}
+                          alt={activeMemory?.title || 'Album Kỷ Niệm'}
+                          draggable={false}
+                          className="h-full w-full select-none object-cover"
+                          style={{ objectPosition }}
+                        />
+                      ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-canvas-cool via-white to-brand-light/40 text-center">
+                          <ImageIcon className="mb-3 h-10 w-10 text-brand opacity-80" />
+                          <h2 className="text-lg font-extrabold text-brand-house">Album Kỷ Niệm</h2>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (!isUploadingMemory) memoryFileInputRef.current?.click();
+                            }}
+                            className="mt-4 inline-flex items-center gap-2 rounded-full bg-brand px-4 py-2 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-accent"
+                          >
+                            <Plus className="h-4 w-4" />
+                            Thêm ảnh
+                          </button>
+                        </div>
+                      )}
+
+                      {frameImage && (
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent" />
+                      )}
+
+                      {isUploadingMemory && (
+                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/65 backdrop-blur-[2px]">
+                          <RefreshCw className="h-8 w-8 animate-spin text-brand" />
+                        </div>
+                      )}
+
+                      <div
+                        className="absolute right-3 top-3 z-30 flex items-center gap-2"
+                        onPointerDown={(event) => event.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (!isUploadingMemory) memoryFileInputRef.current?.click();
+                          }}
+                          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-brand shadow-card ring-1 ring-black/5 transition-colors hover:bg-brand-light"
+                          title="Thêm ảnh"
+                          aria-label="Thêm ảnh"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+
+                        {activeMemory && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(event) => resetMemoryFramePosition(event, activeMemory.id)}
+                              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-brand-house shadow-card ring-1 ring-black/5 transition-colors hover:bg-canvas-dark"
+                              title="Căn giữa"
+                              aria-label="Căn giữa"
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => handleDeleteMemory(event, activeMemory.id)}
+                              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-semantic-destructive shadow-card ring-1 ring-black/5 transition-colors hover:bg-red-50"
+                              title="Xóa ảnh"
+                              aria-label="Xóa ảnh"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {memories.length > 1 && (
+                    <div className="mt-4 flex justify-center gap-2 overflow-x-auto px-1 pb-1">
+                      {memories.slice(0, 10).map(memory => (
+                        <button
+                          key={memory.id}
+                          type="button"
+                          onClick={() => setActiveMemoryId(memory.id)}
+                          className={`h-12 w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-white shadow-sm transition-all ${
+                            activeMemory?.id === memory.id
+                              ? 'border-brand scale-105'
+                              : 'border-white hover:border-brand-light'
+                          }`}
+                          title={memory.title}
+                          aria-label={memory.title}
+                        >
+                          {memory.image_url ? (
+                            <img
+                              src={memory.image_url}
+                              alt=""
+                              className="h-full w-full object-cover"
+                              draggable={false}
+                            />
+                          ) : (
+                            <ImageIcon className="mx-auto h-full w-4 text-brand" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   )}
-                  {isUploadingMemory && (
-                    <RefreshCw className={`w-8 h-8 mb-3 opacity-80 animate-spin ${bgImage ? 'text-white' : 'text-brand'}`} />
-                  )}
-                  <h2 className={`text-xl font-bold ${bgImage ? 'text-white drop-shadow-md' : 'text-brand-house'}`}>
-                    Album Kỷ Niệm
-                  </h2>
-                  <p className={`text-sm mt-1 ${bgImage ? 'text-white/90 drop-shadow-md' : 'text-text-soft'}`}>
-                    {isUploadingMemory ? 'Đang thêm ảnh...' : (bgImage ? 'Nhấn để thêm ảnh mới' : 'Lưu giữ những bức ảnh thật đẹp cùng nhau.')}
-                  </p>
                 </div>
-              </Card>
+              </div>
             );
           })()}
           

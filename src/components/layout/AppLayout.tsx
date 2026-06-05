@@ -4,7 +4,6 @@ import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCareSpace } from '../../contexts/CareSpaceContext';
-import { AnnouncementModal } from '../AnnouncementModal';
 
 export const AppLayout = () => {
   const { user, loading: authLoading } = useAuth();
@@ -35,8 +34,6 @@ export const AppLayout = () => {
           <Outlet />
         </div>
       </main>
-      <AnnouncementModal />
     </div>
   );
 };
-

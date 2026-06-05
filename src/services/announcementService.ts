@@ -1,7 +1,8 @@
 import { supabase } from '../lib/supabase';
 import { AppAnnouncement } from '../types';
 
-const SEEN_KEY_PREFIX = 'friendcare_seen_announcement_';
+const getAnnouncementSeenKey = (id: string) =>
+  `friendcare_seen_announcement_session_${id}`;
 
 export const announcementService = {
   /**
@@ -73,22 +74,22 @@ export const announcementService = {
   },
 
   /**
-   * Mark an announcement as seen by storing its ID in localStorage.
+   * Mark an announcement as seen for the current browser session.
    */
   markAnnouncementSeen(id: string): void {
     try {
-      localStorage.setItem(`${SEEN_KEY_PREFIX}${id}`, 'true');
+      sessionStorage.setItem(getAnnouncementSeenKey(id), 'true');
     } catch {
-      // localStorage may be unavailable
+      // sessionStorage may be unavailable
     }
   },
 
   /**
-   * Check if user has already seen this announcement.
+   * Check if user has already seen this announcement in the current browser session.
    */
   hasSeenAnnouncement(id: string): boolean {
     try {
-      return localStorage.getItem(`${SEEN_KEY_PREFIX}${id}`) === 'true';
+      return sessionStorage.getItem(getAnnouncementSeenKey(id)) === 'true';
     } catch {
       return false;
     }

@@ -14,6 +14,7 @@ import { LoveNotes } from './pages/LoveNotes';
 import { Memories } from './pages/Memories';
 import { Settings } from './pages/Settings';
 import { UpdatePassword } from './pages/UpdatePassword';
+import { AnnouncementModal } from './components/AnnouncementModal';
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
               <Route path="settings" element={<Settings />} />
             </Route>
           </Routes>
+          <AnnouncementModal />
         </CareSpaceProvider>
       </AuthProvider>
     </BrowserRouter>
