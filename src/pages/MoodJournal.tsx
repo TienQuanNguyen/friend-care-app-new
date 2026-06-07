@@ -27,7 +27,7 @@ import {
 import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 
-const REACTION_EMOJIS = ['❤️', '👍', '🥰', '😆', '😮', '😢', '😡'];
+const REACTION_EMOJIS = ['❤️', '👍', '🥰', '😆', '😮', '🥺', '😢', '😡'];
 
 const MOODS_WITH_ICONS: { name: MoodType; icon: React.ComponentType<{ className?: string }> }[] = [
   { name: 'Hạnh phúc', icon: Sparkles },
