@@ -59,27 +59,40 @@ export const SpotifyNowPlaying = () => {
   const upsertPlayback = useCallback(async (snapshot: SpotifyPlaybackSnapshot) => {
     if (!user || !careSpace) return;
 
-    const updatedShare = await spotifyLiveShareService.upsertShare({
-      care_space_id: careSpace.id,
-      user_id: user.id,
-      sharing_enabled: true,
-      is_playing: snapshot.isPlaying,
-      item_type: snapshot.itemType,
-      spotify_item_id: snapshot.spotifyItemId,
-      item_name: snapshot.itemName,
-      artist_name: snapshot.artistName,
-      album_name: snapshot.albumName,
-      album_image_url: snapshot.albumImageUrl,
-      spotify_url: snapshot.spotifyUrl,
-      progress_ms: snapshot.progressMs,
-      duration_ms: snapshot.durationMs,
-      captured_at: snapshot.capturedAt,
-    });
+    let updatedShare: SpotifyLiveShare | null;
 
-    setShares(current => [
-      updatedShare,
-      ...current.filter(share => share.user_id !== updatedShare.user_id),
-    ]);
+    if (snapshot.spotifyItemId && snapshot.itemName && snapshot.spotifyUrl) {
+      updatedShare = await spotifyLiveShareService.upsertShare({
+        care_space_id: careSpace.id,
+        user_id: user.id,
+        sharing_enabled: true,
+        is_playing: snapshot.isPlaying,
+        item_type: snapshot.itemType,
+        spotify_item_id: snapshot.spotifyItemId,
+        item_name: snapshot.itemName,
+        artist_name: snapshot.artistName,
+        album_name: snapshot.albumName,
+        album_image_url: snapshot.albumImageUrl,
+        spotify_url: snapshot.spotifyUrl,
+        progress_ms: snapshot.progressMs,
+        duration_ms: snapshot.durationMs,
+        captured_at: snapshot.capturedAt,
+      });
+    } else {
+      updatedShare = await spotifyLiveShareService.updatePlaybackStatus({
+        careSpaceId: careSpace.id,
+        userId: user.id,
+        isPlaying: false,
+        capturedAt: snapshot.capturedAt,
+      });
+    }
+
+    if (updatedShare) {
+      setShares(current => [
+        updatedShare,
+        ...current.filter(share => share.user_id !== updatedShare.user_id),
+      ]);
+    }
   }, [careSpace, user]);
 
   const syncPlayback = useCallback(async () => {
@@ -161,14 +174,12 @@ export const SpotifyNowPlaying = () => {
     () => shares.find(share => share.user_id === user?.id),
     [shares, user],
   );
-  const liveShares = useMemo(
+  const recentShares = useMemo(
     () => shares
       .filter(share => (
         share.sharing_enabled
-        && share.is_playing
         && share.item_name
         && share.spotify_url
-        && now - Date.parse(share.updated_at) < LIVE_WINDOW_MS
       ))
       .sort((a, b) => {
         if (a.user_id === user?.id) return -1;
@@ -176,10 +187,14 @@ export const SpotifyNowPlaying = () => {
         return Date.parse(b.updated_at) - Date.parse(a.updated_at);
       })
       .slice(0, 2),
-    [now, shares, user],
+    [shares, user],
   );
-  const partnerLiveShare = liveShares.find(share => share.user_id !== user?.id);
-  const displayedShare = partnerLiveShare || liveShares[0] || null;
+  const isCurrentlyPlaying = (share: SpotifyLiveShare) => (
+    share.is_playing && now - Date.parse(share.updated_at) < LIVE_WINDOW_MS
+  );
+  const currentlyPlayingCount = recentShares.filter(isCurrentlyPlaying).length;
+  const partnerRecentShare = recentShares.find(share => share.user_id !== user?.id);
+  const displayedShare = partnerRecentShare || recentShares[0] || null;
 
   const connectSpotify = async () => {
     setErrorMessage('');
@@ -310,7 +325,7 @@ export const SpotifyNowPlaying = () => {
         )}
         <span
           className={`absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#111713] ${
-            displayedShare ? 'bg-[#1ed760]' : 'bg-white/45'
+            currentlyPlayingCount > 0 ? 'bg-[#1ed760]' : displayedShare ? 'bg-amber-300' : 'bg-white/45'
           }`}
         />
       </button>
@@ -318,7 +333,7 @@ export const SpotifyNowPlaying = () => {
       {isOpen && (
         <div
           className={`absolute right-0 top-14 overflow-hidden rounded-xl bg-[#111713] text-white shadow-[0_14px_38px_rgba(0,0,0,0.28)] ${
-            liveShares.length === 2
+            recentShares.length === 2
               ? 'w-[min(380px,calc(100vw-24px))]'
               : 'w-[min(290px,calc(100vw-24px))]'
           }`}
@@ -330,7 +345,11 @@ export const SpotifyNowPlaying = () => {
             <div className="min-w-0 flex-1">
               <p className="text-[9px] font-bold uppercase text-white/45">Spotify</p>
               <p className="truncate text-xs font-extrabold">
-                {liveShares.length === 2 ? 'Cả hai đang nghe' : 'Bài hát đang nghe'}
+                {currentlyPlayingCount === 2
+                  ? 'Cả hai đang nghe'
+                  : currentlyPlayingCount === 1
+                    ? 'Bài hát đang nghe'
+                    : 'Bài hát đã nghe gần đây'}
               </p>
             </div>
             {syncing && <Loader2 className="h-3.5 w-3.5 animate-spin text-white/50" />}
@@ -354,11 +373,12 @@ export const SpotifyNowPlaying = () => {
             </button>
           </div>
 
-          {liveShares.length > 0 ? (
-            <div className={`grid ${liveShares.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              {liveShares.map((share, index) => {
+          {recentShares.length > 0 ? (
+            <div className={`grid ${recentShares.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              {recentShares.map((share, index) => {
                 const profile = profiles.find(item => item.user_id === share.user_id);
                 const isOwnShare = share.user_id === user?.id;
+                const isPlayingNow = isCurrentlyPlaying(share);
 
                 return (
                   <a
@@ -367,7 +387,7 @@ export const SpotifyNowPlaying = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     className={`group min-w-0 p-3 hover:bg-white/[0.04] ${
-                      liveShares.length === 2 && index === 0 ? 'border-r border-white/10' : ''
+                      recentShares.length === 2 && index === 0 ? 'border-r border-white/10' : ''
                     }`}
                     title={`Mở bài của ${isOwnShare ? 'bạn' : profile?.display_name || 'người ấy'} trên Spotify`}
                   >
@@ -375,6 +395,14 @@ export const SpotifyNowPlaying = () => {
                       <span className="text-sm leading-none">{profile?.avatar_emoji || '🎧'}</span>
                       <span className="min-w-0 flex-1 truncate text-[9px] font-bold text-white/55">
                         {isOwnShare ? 'Bạn' : profile?.display_name || 'Người ấy'}
+                      </span>
+                      <span className={`inline-flex shrink-0 items-center gap-1 text-[8px] font-bold ${
+                        isPlayingNow ? 'text-[#1ed760]' : 'text-white/40'
+                      }`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${
+                          isPlayingNow ? 'bg-[#1ed760]' : 'bg-white/30'
+                        }`} />
+                        {isPlayingNow ? 'Đang nghe' : 'Đã nghe'}
                       </span>
                       <ExternalLink className="h-3 w-3 shrink-0 text-white/30 group-hover:text-[#1ed760]" />
                     </span>

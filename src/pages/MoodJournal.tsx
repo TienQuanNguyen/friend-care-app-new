@@ -29,6 +29,17 @@ import { useStreak } from '../hooks/useStreak';
 
 const REACTION_EMOJIS = ['❤️', '👍', '🥰', '😆', '😮', '🥺', '😢', '😡'];
 
+const formatEntryDateTime = (entry: MoodEntry) => {
+  const [year, month, day] = entry.entry_date.split('-');
+  const dateLabel = year && month && day
+    ? `${day}/${month}/${year}`
+    : entry.entry_date;
+  const createdAt = new Date(entry.created_at);
+
+  if (Number.isNaN(createdAt.getTime())) return dateLabel;
+  return `${dateLabel} • ${format(createdAt, 'HH:mm')}`;
+};
+
 const MOODS_WITH_ICONS: { name: MoodType; icon: React.ComponentType<{ className?: string }> }[] = [
   { name: 'Hạnh phúc', icon: Sparkles },
   { name: 'Buồn bã', icon: Frown },
@@ -624,7 +635,7 @@ export const MoodJournal = () => {
                           <div className="flex items-center gap-3">
                             <span className="text-xs font-semibold text-text-soft flex items-center gap-1">
                               <Clock className="w-3.5 h-3.5 text-text-soft" />
-                              {format(new Date(entry.entry_date), 'dd/MM/yyyy')}
+                              {formatEntryDateTime(entry)}
                             </span>
                             {user?.email === 'tienquan0807@gmail.com' && (
                               <button 
@@ -810,7 +821,7 @@ export const MoodJournal = () => {
                               {isCurrentUser ? 'Bạn' : (writerProfile?.display_name || 'Nửa kia')}
                             </td>
                             <td className="p-4 text-text-soft">
-                              {format(new Date(entry.entry_date), 'dd/MM/yyyy')}
+                              {formatEntryDateTime(entry)}
                             </td>
                             <td className="p-4">
                               <span className={`px-3 py-1 rounded-full text-xs font-bold border ${style.bg} ${style.text} ${style.border}`}>

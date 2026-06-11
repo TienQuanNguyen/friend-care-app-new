@@ -102,9 +102,28 @@ const getClientId = () =>
   || localStorage.getItem(RUNTIME_CLIENT_ID_KEY)?.trim()
   || '';
 
-export const getSpotifyRedirectUri = () =>
-  import.meta.env.VITE_SPOTIFY_REDIRECT_URI?.trim()
-  || `${window.location.origin}/spotify/callback`;
+const isLoopbackHost = (hostname: string) =>
+  hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+
+export const getSpotifyRedirectUri = () => {
+  const currentRedirectUri = `${window.location.origin}/spotify/callback`;
+  const configuredRedirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI?.trim();
+  if (!configuredRedirectUri) return currentRedirectUri;
+
+  try {
+    const configuredUrl = new URL(configuredRedirectUri);
+    if (
+      isLoopbackHost(configuredUrl.hostname)
+      && !isLoopbackHost(window.location.hostname)
+    ) {
+      return currentRedirectUri;
+    }
+  } catch {
+    return currentRedirectUri;
+  }
+
+  return configuredRedirectUri;
+};
 
 const getTokenStorageKey = (userId: string) => `${TOKEN_KEY_PREFIX}${userId}`;
 const getSharingStorageKey = (userId: string) => `${SHARING_KEY_PREFIX}${userId}`;
@@ -346,6 +365,29 @@ export const spotifyLiveShareService = {
 
     if (error) throw formatLiveShareError(error);
     return data as SpotifyLiveShare;
+  },
+
+  async updatePlaybackStatus(input: {
+    careSpaceId: string;
+    userId: string;
+    isPlaying: boolean;
+    capturedAt: string;
+  }): Promise<SpotifyLiveShare | null> {
+    const { data, error } = await supabase
+      .from('spotify_live_shares')
+      .update({
+        sharing_enabled: true,
+        is_playing: input.isPlaying,
+        captured_at: input.capturedAt,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('care_space_id', input.careSpaceId)
+      .eq('user_id', input.userId)
+      .select()
+      .maybeSingle();
+
+    if (error) throw formatLiveShareError(error);
+    return data as SpotifyLiveShare | null;
   },
 
   subscribe(careSpaceId: string, onChange: () => void) {
