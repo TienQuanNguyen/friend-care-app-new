@@ -1,5 +1,15 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+export const config = {
+  maxDuration: 60
+};
+
+const RETRYABLE_GEMINI_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+
+const wait = (milliseconds: number) =>
+  new Promise(resolve => setTimeout(resolve, milliseconds));
+
 function buildPersonalRecentSummary(personalRecentEntries: any[]): string {
   if (!personalRecentEntries || !Array.isArray(personalRecentEntries) || personalRecentEntries.length === 0) {
     return 'Không có lịch sử cá nhân gần đây.';
@@ -148,7 +158,6 @@ export default async function handler(req: any, res: any) {
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = `Bạn đang viết lời khuyên cảm xúc cho người dùng hiện tại.
 
@@ -204,15 +213,28 @@ Luật cực kỳ quan trọng:
 
 Hãy viết đoạn phản hồi cảm xúc bằng tiếng Việt ngay dưới đây:`;
 
-    const result = await model.generateContent(prompt);
-    const adviceText = result.response.text().trim();
+    for (let attempt = 1; attempt <= GEMINI_MODELS.length; attempt += 1) {
+      const modelName = GEMINI_MODELS[attempt - 1];
+      const model = genAI.getGenerativeModel({ model: modelName });
 
-    if (!adviceText) {
-      console.error('[Backend API Error] Gemini returned empty response.');
-      return res.status(502).json({ error: 'Gemini returned empty advice' });
+      try {
+        const result = await model.generateContent(prompt);
+        const adviceText = result.response.text().trim();
+
+        if (!adviceText) {
+          throw Object.assign(new Error('Gemini returned empty advice'), { status: 502 });
+        }
+
+        return res.status(200).json({ advice: adviceText });
+      } catch (error: any) {
+        const statusCode = Number(error?.status || error?.statusCode || 502);
+        const shouldRetry = attempt < GEMINI_MODELS.length && RETRYABLE_GEMINI_STATUS_CODES.has(statusCode);
+
+        console.warn(`[Backend API] Gemini model ${modelName} failed:`, error?.message || error);
+        if (!shouldRetry) throw error;
+        await wait(900);
+      }
     }
-
-    return res.status(200).json({ advice: adviceText });
   } catch (error: any) {
     console.error('[Backend API Error] Gemini call failed:', error.message || error);
     const statusCode = error.status || 502;

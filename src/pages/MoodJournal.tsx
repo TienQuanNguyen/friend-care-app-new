@@ -5,7 +5,7 @@ import { Button } from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { useCareSpace } from '../contexts/CareSpaceContext';
 import { moodService } from '../services/moodService';
-import { adviceService } from '../services/adviceService';
+import { adviceService, type AdviceInput } from '../services/adviceService';
 import { MoodEntry, MoodType } from '../types';
 import { format } from 'date-fns';
 import { 
@@ -133,6 +133,7 @@ export const MoodJournal = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
   const [retryingEntryId, setRetryingEntryId] = useState<string | null>(null);
+  const [generatingAdviceEntryIds, setGeneratingAdviceEntryIds] = useState<Set<string>>(new Set());
   const [activeReactionPickerId, setActiveReactionPickerId] = useState<string | null>(null);
 
   const toggleExpand = (id: string) => {
@@ -177,15 +178,42 @@ export const MoodJournal = () => {
     return profiles.find(p => p.user_id === userId);
   };
 
+  const generateAndAttachAdvice = async (entryId: string, input: AdviceInput) => {
+    setGeneratingAdviceEntryIds(current => new Set(current).add(entryId));
+
+    try {
+      const advice = await adviceService.getAdvice(input);
+      if (!advice) return;
+
+      await moodService.updateAdvice(entryId, advice);
+      setEntries(current => current.map(entry => (
+        entry.id === entryId ? { ...entry, ai_advice: advice } : entry
+      )));
+      setGeneratedAdvice(advice);
+    } catch (error) {
+      console.error('[MoodAdvice] Background generation failed:', error);
+    } finally {
+      setGeneratingAdviceEntryIds(current => {
+        const next = new Set(current);
+        next.delete(entryId);
+        return next;
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMood || !user || !careSpace) return;
     
     setError('');
+    setGeneratedAdvice('');
     setIsSubmitting(true);
-    let advice = '';
 
     try {
+      const submittedMood = selectedMood;
+      const submittedEnergyLevel = energyLevel;
+      const submittedNote = note;
+      const submittedGratitude = gratitude;
       const userProfile = getProfile(user.id);
       const currentUser = {
         id: user.id,
@@ -220,10 +248,10 @@ export const MoodJournal = () => {
           currentUserName: currentUser.display_name,
           personalRecentCount: personalRecentEntries.length,
           sharedRecentCount: sharedRecentEntries.length,
-          mood: selectedMood,
-          energy_level: energyLevel,
-          hasNote: !!note,
-          hasGratitude: !!gratitude
+          mood: submittedMood,
+          energy_level: submittedEnergyLevel,
+          hasNote: !!submittedNote,
+          hasGratitude: !!submittedGratitude
         });
       }
 
@@ -236,46 +264,42 @@ export const MoodJournal = () => {
         gratitude: e.gratitude
       }));
 
-      advice = await adviceService.getAdvice({
+      const adviceInput: AdviceInput = {
         currentUser,
-        mood: selectedMood,
-        energy_level: energyLevel,
-        note,
-        gratitude,
+        mood: submittedMood,
+        energy_level: submittedEnergyLevel,
+        note: submittedNote,
+        gratitude: submittedGratitude,
         personalRecentEntries,
         sharedRecentEntries,
         recentEntries: legacyRecentEntries,
         variationSeed: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-      });
-      setGeneratedAdvice(advice);
-    } catch (err) {
-      console.error(err);
-      // No fake fallback advice – just leave empty
-    }
+      };
 
-    try {
       const result = await moodService.addEntry({
         care_space_id: careSpace.id,
         created_by: user.id,
-        mood: selectedMood,
-        energy_level: energyLevel,
-        note,
-        gratitude,
-        ai_advice: advice || undefined,
+        mood: submittedMood,
+        energy_level: submittedEnergyLevel,
+        note: submittedNote,
+        gratitude: submittedGratitude,
+        ai_advice: undefined,
         entry_date: format(new Date(), 'yyyy-MM-dd')
       });
       
       if (!result) throw new Error("Lưu nhật ký thất bại.");
       
+      setEntries(current => [result, ...current]);
       setSelectedMood('');
       setEnergyLevel(5);
       setNote('');
       setGratitude('');
-      loadEntries();
-      await refreshStreak();
       setIsFormOpen(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 2000);
+
+      void refreshStreak();
+      void generateAndAttachAdvice(result.id, adviceInput);
     } catch (err: unknown) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Đã xảy ra lỗi khi lưu nhật ký.");
@@ -766,6 +790,11 @@ export const MoodJournal = () => {
                         {entry.ai_advice ? (
                           <div className={`text-xs text-text-soft italic leading-relaxed ${isExpanded ? '' : 'line-clamp-3'}`}>
                             "{entry.ai_advice}"
+                          </div>
+                        ) : generatingAdviceEntryIds.has(entry.id) ? (
+                          <div className="inline-flex items-center gap-2 text-xs text-text-soft italic">
+                            <RefreshCw className="h-3 w-3 animate-spin text-brand-accent" />
+                            AI đang viết lời khuyên...
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
