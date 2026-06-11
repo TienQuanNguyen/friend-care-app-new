@@ -92,6 +92,24 @@ export interface LoveNote {
   updated_at: string;
 }
 
+export interface DailyInteraction {
+  id: string;
+  care_space_id: string;
+  user_id: string;
+  activity_date: string;
+  interaction_count: number;
+  sources: string[];
+  first_interaction_at: string;
+  last_interaction_at: string;
+}
+
+export interface StreakStatus {
+  currentStreak: number;
+  bestStreak: number;
+  completedToday: boolean;
+  activeUserIdsToday: string[];
+}
+
 export interface Memory {
   id: string;
   care_space_id: string;
@@ -140,4 +158,26 @@ export interface MusicNote {
   created_at: string;
   updated_at?: string | null;
   creator_name?: string | null;
+}
+
+export type SpotifyItemType = 'track' | 'episode';
+
+export interface SpotifyLiveShare {
+  id: string;
+  care_space_id: string;
+  user_id: string;
+  sharing_enabled: boolean;
+  is_playing: boolean;
+  item_type?: SpotifyItemType | null;
+  spotify_item_id?: string | null;
+  item_name?: string | null;
+  artist_name?: string | null;
+  album_name?: string | null;
+  album_image_url?: string | null;
+  spotify_url?: string | null;
+  progress_ms?: number | null;
+  duration_ms?: number | null;
+  captured_at?: string | null;
+  created_at: string;
+  updated_at: string;
 }

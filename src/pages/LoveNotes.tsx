@@ -5,72 +5,22 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCareSpace } from '../contexts/CareSpaceContext';
 import { loveNoteService } from '../services/loveNoteService';
 import { LoveNote } from '../types';
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Heart, Flame, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Heart, Flame, Sparkles, CheckCircle2, Clock3 } from 'lucide-react';
 import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
+import { useStreak } from '../hooks/useStreak';
 
 export const LoveNotes = () => {
   const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
+  const { status: streakStatus, loading: streakLoading, refresh: refreshStreak } = useStreak();
   const [notes, setNotes] = useState<LoveNote[]>([]);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-
-  // Streaks are computed from notes
-  const [streak, setStreak] = useState(0);
-  const [bestStreak, setBestStreak] = useState(0);
-  const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
-
-  useEffect(() => {
-    loadNotes();
-  }, []);
-
-  useEffect(() => {
-    if (!notes.length) {
-      setStreak(0);
-      setBestStreak(0);
-      setHasCheckedInToday(false);
-      return;
-    }
-
-    const dates = Array.from(new Set(notes.map(n => format(parseISO(n.created_at), 'yyyy-MM-dd'))))
-      .sort((a, b) => b.localeCompare(a));
-      
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
-    const yesterdayStr = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
-    
-    let current = 0;
-    if (dates[0] === todayStr || dates[0] === yesterdayStr) {
-      current = 1;
-      for (let i = 0; i < dates.length - 1; i++) {
-        if (differenceInDays(parseISO(dates[i]), parseISO(dates[i+1])) === 1) {
-          current++;
-        } else {
-          break;
-        }
-      }
-    }
-    
-    let best = 1;
-    let temp = 1;
-    for (let i = 0; i < dates.length - 1; i++) {
-      if (differenceInDays(parseISO(dates[i]), parseISO(dates[i+1])) === 1) {
-        temp++;
-      } else {
-        if (temp > best) best = temp;
-        temp = 1;
-      }
-    }
-    if (temp > best) best = temp;
-    
-    setStreak(current);
-    setBestStreak(best);
-    setHasCheckedInToday(dates[0] === todayStr);
-  }, [notes]);
 
   const loadNotes = async () => {
     setIsLoading(true);
@@ -82,21 +32,14 @@ export const LoveNotes = () => {
     }
   };
 
-  const handleCheckIn = async () => {
-    if (!user || !careSpace || isSubmitting) return;
-    
-    setIsSubmitting(true);
-    try {
-      await loveNoteService.addNote({
-        care_space_id: careSpace.id,
-        created_by: user.id,
-        message: 'Đã ghé thăm không gian ❤️',
-      });
-      loadNotes();
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadNotes();
+      void refreshStreak();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [refreshStreak]);
 
   const handleSubmitNote = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,6 +57,7 @@ export const LoveNotes = () => {
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 2000);
       loadNotes();
+      await refreshStreak();
     } finally {
       setIsSubmitting(false);
     }
@@ -132,7 +76,7 @@ export const LoveNotes = () => {
           Giữ lửa yêu thương
         </h1>
         <p className="text-text-soft text-sm leading-relaxed">
-          Chỉ cần một trong hai bạn ghé thăm ứng dụng để lại một dấu ấn mỗi ngày, ngọn lửa nhỏ sẽ rực sáng.
+          Mỗi người chỉ cần có một tương tác trong ngày. Khi cả hai cùng xuất hiện, chuỗi sẽ tự động được nối tiếp.
         </p>
       </div>
 
@@ -145,9 +89,9 @@ export const LoveNotes = () => {
           <div className="relative z-10">
             <div className="text-xs font-bold text-gold tracking-wider uppercase mb-1">Chuỗi hiện tại</div>
             <div className="text-4xl font-black text-text-main my-2 flex justify-center items-baseline gap-1">
-              {streak} <span className="text-sm font-semibold text-text-soft">ngày liên tục</span>
+              {streakLoading ? '–' : streakStatus.currentStreak} <span className="text-sm font-semibold text-text-soft">ngày liên tục</span>
             </div>
-            <p className="text-xs text-text-soft">Ngọn lửa yêu thương đang bừng cháy rực rỡ!</p>
+            <p className="text-xs text-text-soft">Chỉ tính những ngày cả hai đều có hoạt động.</p>
           </div>
         </Card>
 
@@ -158,7 +102,7 @@ export const LoveNotes = () => {
           <div className="relative z-10">
             <div className="text-xs font-bold text-brand-accent tracking-wider uppercase mb-1">Kỷ lục cao nhất</div>
             <div className="text-4xl font-black text-text-main my-2 flex justify-center items-baseline gap-1">
-              {bestStreak} <span className="text-sm font-semibold text-text-soft">ngày của cả hai</span>
+              {streakLoading ? '–' : streakStatus.bestStreak} <span className="text-sm font-semibold text-text-soft">ngày của cả hai</span>
             </div>
             <p className="text-xs text-text-soft">Mục tiêu vượt qua bản thân và thắt chặt kết nối.</p>
           </div>
@@ -178,33 +122,62 @@ export const LoveNotes = () => {
         </Card>
       </div>
 
-      {/* Check-in Section */}
-      <Card className="bg-white shadow-card border-none text-center py-8 px-4">
-        <h2 className="text-xl font-bold text-text-main mb-2">Điểm danh nhẹ mỗi ngày</h2>
+      {/* Automatic two-person streak status */}
+      <Card className="bg-white shadow-card border-none py-7 px-5">
+        <div className="mb-5 text-center">
+          <h2 className="text-xl font-bold text-text-main">Giữ lửa hôm nay</h2>
+          <p className="mt-1 text-sm text-text-soft">
+            Chuỗi được tích tự động sau khi cả hai đều có hoạt động.
+          </p>
+        </div>
 
-        {!hasCheckedInToday ? (
-          <>
-            <p className="text-text-soft text-sm mb-6 max-w-md mx-auto">
-              Hôm nay hai bạn chưa có bản ghi? Hãy gửi ngay một nút chạm nhẹ thay lời chào!
-            </p>
-            <Button onClick={handleCheckIn} className="bg-brand hover:bg-brand-accent text-white font-bold px-8 py-3 rounded-pill shadow-frap-base animate-bounce-slow">
-              Điểm danh hôm nay
-            </Button>
-          </>
-        ) : (
-          <div className="animate-in zoom-in duration-500 max-w-md mx-auto">
-            <div className="inline-flex items-center gap-2 bg-brand-light/50 text-brand-house px-4 py-1.5 rounded-pill text-sm font-bold mb-4 border border-brand-light">
-              <CheckCircle2 className="w-4 h-4" /> Đã điểm danh hôm nay!
-            </div>
-            <div className="bg-canvas-cool rounded-xl p-5 border border-brand-light/30 relative">
-              <Heart className="absolute -top-3 -right-3 w-8 h-8 text-brand fill-brand-light opacity-50" />
-              <p className="text-text-main font-medium leading-relaxed">
-                Tuyệt vời ông mặt trời ka ka ka ka ka ka ka <br />
-                <span className="text-xs text-text-soft mt-2 block font-semibold">{format(new Date(), 'dd/MM/yyyy')}</span>
-              </p>
-            </div>
-          </div>
-        )}
+        <div className="mx-auto grid max-w-xl grid-cols-2 gap-3">
+          {[profiles[0] || null, profiles[1] || null].map((profile, index) => {
+            const isActive = profile
+              ? streakStatus.activeUserIdsToday.includes(profile.user_id)
+              : false;
+            const displayName = profile?.display_name || (index === 0 ? 'Bạn' : 'Người còn lại');
+
+            return (
+              <div
+                key={profile?.user_id || `streak-slot-${index}`}
+                className={`min-w-0 rounded-xl border p-4 text-center ${
+                  isActive
+                    ? 'border-brand-light bg-brand-light/35'
+                    : 'border-canvas-dark bg-canvas-cool'
+                }`}
+              >
+                <div className="mb-2 text-2xl">{profile?.avatar_emoji || '👤'}</div>
+                <p className="truncate text-sm font-bold text-text-main">
+                  {displayName}{profile?.user_id === user?.id ? ' (Bạn)' : ''}
+                </p>
+                <div className={`mt-2 inline-flex items-center gap-1.5 text-xs font-semibold ${
+                  isActive ? 'text-brand' : 'text-text-soft'
+                }`}>
+                  {isActive ? (
+                    <CheckCircle2 className="h-4 w-4" />
+                  ) : (
+                    <Clock3 className="h-4 w-4" />
+                  )}
+                  {isActive ? 'Đã có hoạt động' : 'Đang chờ'}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className={`mx-auto mt-5 flex max-w-xl items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold ${
+          streakStatus.completedToday
+            ? 'bg-orange-50 text-orange-700'
+            : 'bg-canvas-cool text-text-soft'
+        }`}>
+          <Flame className={`h-5 w-5 ${
+            streakStatus.completedToday ? 'fill-orange-400 text-orange-500' : 'text-gray-400'
+          }`} />
+          {streakStatus.completedToday
+            ? 'Ngọn lửa hôm nay đã được thắp sáng.'
+            : 'Cần hoạt động từ cả hai để nối chuỗi hôm nay.'}
+        </div>
       </Card>
 
       <div className="grid md:grid-cols-2 gap-8 items-start">

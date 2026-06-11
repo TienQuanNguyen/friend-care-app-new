@@ -14,29 +14,34 @@ import { LoveNotes } from './pages/LoveNotes';
 import { Memories } from './pages/Memories';
 import { Settings } from './pages/Settings';
 import { UpdatePassword } from './pages/UpdatePassword';
+import { SpotifyCallback } from './pages/SpotifyCallback';
 import { AnnouncementModal } from './components/AnnouncementModal';
+import { StreakProvider } from './contexts/StreakContext';
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <CareSpaceProvider>
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/update-password" element={<UpdatePassword />} />
-            
-            <Route path="/" element={<AppLayout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="mood" element={<MoodJournal />} />
-              <Route path="foods" element={<FoodPlaces />} />
-              <Route path="schedules" element={<Schedules />} />
-              <Route path="love-notes" element={<LoveNotes />} />
-              <Route path="memories" element={<Memories />} />
-              <Route path="settings" element={<Settings />} />
-            </Route>
-          </Routes>
-          <AnnouncementModal />
+          <StreakProvider>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/onboarding" element={<Onboarding />} />
+              <Route path="/update-password" element={<UpdatePassword />} />
+              <Route path="/spotify/callback" element={<SpotifyCallback />} />
+
+              <Route path="/" element={<AppLayout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="mood" element={<MoodJournal />} />
+                <Route path="foods" element={<FoodPlaces />} />
+                <Route path="schedules" element={<Schedules />} />
+                <Route path="love-notes" element={<LoveNotes />} />
+                <Route path="memories" element={<Memories />} />
+                <Route path="settings" element={<Settings />} />
+              </Route>
+            </Routes>
+            <AnnouncementModal />
+          </StreakProvider>
         </CareSpaceProvider>
       </AuthProvider>
     </BrowserRouter>

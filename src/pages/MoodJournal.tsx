@@ -8,7 +8,6 @@ import { moodService } from '../services/moodService';
 import { adviceService } from '../services/adviceService';
 import { MoodEntry, MoodType } from '../types';
 import { format } from 'date-fns';
-import { vi } from 'date-fns/locale';
 import { 
   Sparkles, 
   Frown, 
@@ -26,6 +25,7 @@ import {
 } from 'lucide-react';
 import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
+import { useStreak } from '../hooks/useStreak';
 
 const REACTION_EMOJIS = ['❤️', '👍', '🥰', '😆', '😮', '🥺', '😢', '😡'];
 
@@ -104,6 +104,7 @@ const getMoodStyle = (mood: string) => {
 export const MoodJournal = () => {
   const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
+  const { refresh: refreshStreak } = useStreak();
   const [entries, setEntries] = useState<MoodEntry[]>([]);
   
   const [isFormOpen, setIsFormOpen] = useState(true);
@@ -132,10 +133,6 @@ export const MoodJournal = () => {
     });
   };
 
-  useEffect(() => {
-    loadEntries();
-  }, []);
-
   const loadEntries = async () => {
     setIsLoading(true);
     try {
@@ -145,6 +142,14 @@ export const MoodJournal = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      void loadEntries();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   const handleDeleteEntry = async (id: string) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa ghi chép này?')) return;
@@ -235,7 +240,6 @@ export const MoodJournal = () => {
     } catch (err) {
       console.error(err);
       // No fake fallback advice – just leave empty
-      advice = '';
     }
 
     try {
@@ -257,12 +261,13 @@ export const MoodJournal = () => {
       setNote('');
       setGratitude('');
       loadEntries();
+      await refreshStreak();
       setIsFormOpen(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message || "Đã xảy ra lỗi khi lưu nhật ký.");
+      setError(err instanceof Error ? err.message : "Đã xảy ra lỗi khi lưu nhật ký.");
     } finally {
       setIsSubmitting(false);
     }
@@ -344,6 +349,7 @@ export const MoodJournal = () => {
         }
         // Update local state
         setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, ai_advice: advice } : e));
+        await refreshStreak();
       }
     } catch (err) {
       console.error('[RetryAdvice] Failed:', err);
@@ -371,6 +377,7 @@ export const MoodJournal = () => {
       // Optimistic update
       setEntries(prev => prev.map(e => e.id === entryId ? { ...e, reactions: newReactions } : e));
       await moodService.updateReactions(entryId, newReactions);
+      await refreshStreak();
     } catch (err) {
       console.error('Failed to update reaction:', err);
       // Revert on failure

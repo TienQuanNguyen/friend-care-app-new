@@ -15,6 +15,7 @@ import { vi } from 'date-fns/locale';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 import { MiniConfetti } from '../components/ui/MiniConfetti';
 import { useAuth } from '../contexts/AuthContext';
+import { SpotifyNowPlaying } from '../components/SpotifyNowPlaying';
 
 const stagger: Variants = {
   initial: {},
@@ -502,6 +503,7 @@ export const Dashboard = () => {
 
   return (
     <motion.div className="space-y-6 max-w-5xl mx-auto" variants={stagger} initial="initial" animate="animate">
+      <SpotifyNowPlaying />
 
       {/* Header */}
       <motion.section className="text-center mb-8" variants={fadeUp}>
