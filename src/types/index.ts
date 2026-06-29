@@ -118,6 +118,7 @@ export interface Memory {
   memory_date?: string;
   description?: string;
   image_url?: string;
+  reactions?: Record<string, string>;
   created_at: string;
   updated_at: string;
 }

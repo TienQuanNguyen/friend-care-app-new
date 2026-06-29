@@ -15,7 +15,6 @@ import { vi } from 'date-fns/locale';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 import { MiniConfetti } from '../components/ui/MiniConfetti';
 import { useAuth } from '../contexts/AuthContext';
-import { SpotifyNowPlaying } from '../components/SpotifyNowPlaying';
 
 const stagger: Variants = {
   initial: {},
@@ -34,6 +33,7 @@ type MemoryFramePosition = {
 const DEFAULT_MEMORY_FRAME_POSITION: MemoryFramePosition = { x: 0, y: 0 };
 const MEMORY_FRAME_POSITIONS_STORAGE_KEY = 'friendcare_memory_frame_positions';
 const clampMemoryFramePosition = (value: number) => Math.max(-35, Math.min(35, value));
+const MEMORY_REACTION_EMOJIS = ['❤️', '👍', '🥰', '😆', '😮', '🥺', '😏'];
 
 const loadStoredMemoryFramePositions = (): Record<string, MemoryFramePosition> => {
   try {
@@ -110,6 +110,7 @@ export const Dashboard = () => {
     () => loadStoredMemoryFramePositions()
   );
   const [isDraggingMemoryFrame, setIsDraggingMemoryFrame] = useState(false);
+  const [activeMemoryReactionPickerId, setActiveMemoryReactionPickerId] = useState<string | null>(null);
   const memoryFileInputRef = React.useRef<HTMLInputElement>(null);
   const memoryFrameDragRef = React.useRef<{
     id: string;
@@ -386,6 +387,33 @@ export const Dashboard = () => {
     }
   };
 
+  const handleMemoryReact = async (memoryId: string, emoji: string) => {
+    if (!user) return;
+
+    const memory = memories.find(item => item.id === memoryId);
+    if (!memory) return;
+
+    const currentReactions = memory.reactions || {};
+    const nextReactions = { ...currentReactions };
+
+    if (nextReactions[user.id] === emoji) {
+      delete nextReactions[user.id];
+    } else {
+      nextReactions[user.id] = emoji;
+    }
+
+    setMemories(prev => prev.map(item => (
+      item.id === memoryId ? { ...item, reactions: nextReactions } : item
+    )));
+
+    const success = await memoryService.updateReactions(memoryId, nextReactions);
+    if (!success) {
+      setMemories(prev => prev.map(item => (
+        item.id === memoryId ? { ...item, reactions: currentReactions } : item
+      )));
+    }
+  };
+
   // Welcome Modal state
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [dailyMessage, setDailyMessage] = useState<string>('');
@@ -503,8 +531,6 @@ export const Dashboard = () => {
 
   return (
     <motion.div className="space-y-6 max-w-5xl mx-auto" variants={stagger} initial="initial" animate="animate">
-      <SpotifyNowPlaying />
-
       {/* Header */}
       <motion.section className="text-center mb-8" variants={fadeUp}>
         <h1 className="text-3xl font-bold text-brand tracking-tight mb-2">{getGreeting()}</h1>
@@ -1021,6 +1047,76 @@ export const Dashboard = () => {
                       </div>
                     </div>
                   </div>
+
+                  {activeMemory && (() => {
+                    const reactions = activeMemory.reactions || {};
+                    const groupedReactions = Object.entries(reactions).reduce<Record<string, string[]>>((acc, [uid, emoji]) => {
+                      acc[emoji] = [...(acc[emoji] || []), uid];
+                      return acc;
+                    }, {});
+                    const myReaction = user ? reactions[user.id] : undefined;
+
+                    return (
+                      <div className="relative mt-3 flex flex-wrap items-center justify-center gap-2">
+                        {Object.entries(groupedReactions).map(([emoji, userIds]) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => void handleMemoryReact(activeMemory.id, emoji)}
+                            className={`inline-flex h-8 items-center gap-1 rounded-full border px-2.5 text-sm font-bold shadow-sm transition-all ${
+                              myReaction === emoji
+                                ? 'border-brand bg-brand-light text-brand-house'
+                                : 'border-canvas-dark bg-white text-text-main hover:border-brand-light'
+                            }`}
+                            title={userIds
+                              .map(uid => profiles.find(profile => profile.user_id === uid)?.display_name || 'Thành viên')
+                              .join(', ')}
+                          >
+                            <span>{emoji}</span>
+                            <span className="text-[11px]">{userIds.length}</span>
+                          </button>
+                        ))}
+
+                        <button
+                          type="button"
+                          onClick={() => setActiveMemoryReactionPickerId(current => (
+                            current === activeMemory.id ? null : activeMemory.id
+                          ))}
+                          className="inline-flex h-8 items-center gap-1 rounded-full border border-canvas-dark bg-white px-3 text-xs font-extrabold text-brand-house shadow-sm transition-colors hover:border-brand-light hover:bg-brand-light/25"
+                        >
+                          Bày tỏ ✨
+                        </button>
+
+                        <AnimatePresence>
+                          {activeMemoryReactionPickerId === activeMemory.id && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                              transition={{ type: 'spring', stiffness: 380, damping: 22 }}
+                              className="absolute bottom-10 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border border-canvas-dark bg-white px-3 py-2 shadow-xl"
+                            >
+                              {MEMORY_REACTION_EMOJIS.map(emoji => (
+                                <motion.button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => {
+                                    void handleMemoryReact(activeMemory.id, emoji);
+                                    setActiveMemoryReactionPickerId(null);
+                                  }}
+                                  whileHover={{ scale: 1.35 }}
+                                  whileTap={{ scale: 0.93 }}
+                                  className="block p-0.5 text-xl transition-transform hover:-translate-y-1"
+                                >
+                                  {emoji}
+                                </motion.button>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })()}
 
                   {memories.length > 1 && (
                     <div className="mt-4 flex justify-center gap-2 overflow-x-auto px-1 pb-1">

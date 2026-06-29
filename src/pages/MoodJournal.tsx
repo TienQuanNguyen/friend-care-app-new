@@ -27,7 +27,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 import { useStreak } from '../hooks/useStreak';
 
-const REACTION_EMOJIS = ['❤️', '👍', '🥰', '😆', '😮', '🥺', '😢', '😡'];
+const REACTION_EMOJIS = ['❤️', '👍', '🥰', '😆', '😮', '🥺', '😏', '😢', '😡'];
 
 const formatEntryDateTime = (entry: MoodEntry) => {
   const [year, month, day] = entry.entry_date.split('-');

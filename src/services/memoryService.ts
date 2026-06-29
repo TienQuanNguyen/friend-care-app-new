@@ -81,5 +81,18 @@ export const memoryService = {
       return false;
     }
     return true;
+  },
+
+  async updateReactions(id: string, reactions: Record<string, string>): Promise<boolean> {
+    const { error } = await supabase
+      .from('memories')
+      .update({ reactions })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error updating memory reactions:', error);
+      return false;
+    }
+    return true;
   }
 };
