@@ -1059,22 +1059,33 @@ export const Dashboard = () => {
                     return (
                       <div className="relative mt-3 flex flex-wrap items-center justify-center gap-2">
                         {Object.entries(groupedReactions).map(([emoji, userIds]) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            onClick={() => void handleMemoryReact(activeMemory.id, emoji)}
-                            className={`inline-flex h-8 items-center gap-1 rounded-full border px-2.5 text-sm font-bold shadow-sm transition-all ${
-                              myReaction === emoji
-                                ? 'border-brand bg-brand-light text-brand-house'
-                                : 'border-canvas-dark bg-white text-text-main hover:border-brand-light'
-                            }`}
-                            title={userIds
-                              .map(uid => profiles.find(profile => profile.user_id === uid)?.display_name || 'Thành viên')
-                              .join(', ')}
-                          >
-                            <span>{emoji}</span>
-                            <span className="text-[11px]">{userIds.length}</span>
-                          </button>
+                          <div key={emoji} className="relative group/tooltip">
+                            <button
+                              type="button"
+                              onClick={() => void handleMemoryReact(activeMemory.id, emoji)}
+                              className={`inline-flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-sm font-bold shadow-sm transition-all ${
+                                myReaction === emoji
+                                  ? 'border-brand bg-brand-light text-brand-house'
+                                  : 'border-canvas-dark bg-white text-text-main hover:border-brand-light'
+                              }`}
+                            >
+                              <span>{emoji}</span>
+                              <span className={`text-[11px] font-semibold ${
+                                myReaction === emoji ? 'text-brand-house/90' : 'text-text-soft'
+                              }`}>
+                                {userIds
+                                  .map(uid => uid === user?.id ? 'Bạn' : (profiles.find(p => p.user_id === uid)?.display_name || 'Nửa kia'))
+                                  .join(', ')}
+                              </span>
+                            </button>
+
+                            {/* Custom Tooltip */}
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:block bg-gray-900/90 text-white text-[10px] font-bold py-1 px-2.5 rounded shadow-lg whitespace-nowrap z-50 pointer-events-none">
+                              {userIds
+                                .map(uid => profiles.find(profile => profile.user_id === uid)?.display_name || 'Thành viên')
+                                .join(', ')}
+                            </div>
+                          </div>
                         ))}
 
                         <button
