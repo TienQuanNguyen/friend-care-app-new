@@ -111,7 +111,7 @@ export const Dashboard = () => {
   );
   const [isDraggingMemoryFrame, setIsDraggingMemoryFrame] = useState(false);
   const [activeMemoryReactionPickerId, setActiveMemoryReactionPickerId] = useState<string | null>(null);
-  const [showMemoryGallery, setShowMemoryGallery] = useState(false);
+  const [isMemoryListModalOpen, setIsMemoryListModalOpen] = useState(false);
   const memoryFileInputRef = React.useRef<HTMLInputElement>(null);
   const memoryFrameDragRef = React.useRef<{
     id: string;
@@ -529,6 +529,8 @@ export const Dashboard = () => {
     if (h < 18) return 'Chào buổi chiều! 🌤️';
     return 'Chào buổi tối Sơn Duyên kkk! 🌙';
   };
+
+  const activeMemory = memories.find(m => m.id === activeMemoryId) || memories[0];
 
   return (
     <motion.div className="space-y-6 max-w-5xl mx-auto" variants={stagger} initial="initial" animate="animate">
@@ -1099,20 +1101,7 @@ export const Dashboard = () => {
                           Bày tỏ ✨
                         </button>
 
-                        {memories.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => setShowMemoryGallery(prev => !prev)}
-                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-sm transition-colors ${
-                              showMemoryGallery
-                                ? 'border-brand bg-brand-light text-brand-house font-bold'
-                                : 'border-canvas-dark bg-white text-text-soft hover:border-brand-light hover:bg-brand-light/25'
-                            }`}
-                            title={showMemoryGallery ? "Ẩn danh sách ảnh" : "Hiển thị danh sách ảnh"}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-                        )}
+
 
                         <AnimatePresence>
                           {activeMemoryReactionPickerId === activeMemory.id && (
@@ -1145,14 +1134,14 @@ export const Dashboard = () => {
                     );
                   })()}
 
-                  {memories.length > 1 && showMemoryGallery && (
-                    <div className="mt-4 flex justify-center gap-2 overflow-x-auto px-1 pb-1 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                      {memories.slice(0, 10).map(memory => (
+                  {memories.length > 1 && (
+                    <div className="mt-4 flex items-center justify-center gap-2 px-1 pb-1">
+                      {memories.slice(0, 3).map(memory => (
                         <button
                           key={memory.id}
                           type="button"
                           onClick={() => setActiveMemoryId(memory.id)}
-                          className={`h-12 w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-white shadow-sm transition-all ${
+                          className={`h-11 w-14 shrink-0 overflow-hidden rounded-lg border-2 bg-white shadow-sm transition-all ${
                             activeMemory?.id === memory.id
                               ? 'border-brand scale-105'
                               : 'border-white hover:border-brand-light'
@@ -1172,6 +1161,18 @@ export const Dashboard = () => {
                           )}
                         </button>
                       ))}
+
+                      {memories.length > 3 && (
+                        <button
+                          type="button"
+                          onClick={() => setIsMemoryListModalOpen(true)}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-canvas-dark bg-white text-text-soft shadow-sm transition-colors hover:border-brand-light hover:bg-brand-light/25"
+                          title="Xem tất cả kỷ niệm"
+                          aria-label="Xem tất cả kỷ niệm"
+                        >
+                          <MoreHorizontal className="h-5 w-5" />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1222,6 +1223,71 @@ export const Dashboard = () => {
               >
                 Bắt đầu trải nghiệm thôi!
               </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Memory List Modal */}
+      <AnimatePresence>
+        {isMemoryListModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-white rounded-3xl p-5 md:p-6 max-w-lg w-full shadow-2xl relative max-h-[85vh] flex flex-col"
+            >
+              <button
+                type="button"
+                onClick={() => setIsMemoryListModalOpen(false)}
+                className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-canvas-dark text-text-soft hover:text-text-main transition-colors hover:bg-canvas-dark/80"
+                title="Đóng"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <h3 className="text-lg font-extrabold text-brand-house mb-4 pr-8">
+                Tất cả kỷ niệm ({memories.length})
+              </h3>
+
+              <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-3 gap-3">
+                {memories.map(memory => (
+                  <button
+                    key={memory.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveMemoryId(memory.id);
+                      setIsMemoryListModalOpen(false);
+                    }}
+                    className={`relative aspect-[4/3] w-full overflow-hidden rounded-xl border-2 bg-white shadow-sm transition-all group ${
+                      activeMemory?.id === memory.id
+                        ? 'border-brand scale-[1.02]'
+                        : 'border-canvas-dark hover:border-brand-light'
+                    }`}
+                  >
+                    {memory.image_url ? (
+                      <img
+                        src={memory.image_url}
+                        alt={memory.title || "Kỷ niệm"}
+                        className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-canvas-dark">
+                        <ImageIcon className="h-6 w-6 text-brand" />
+                      </div>
+                    )}
+                    {memory.title && (
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-1.5 pt-4 text-left">
+                        <span className="block truncate text-[10px] font-bold text-white">
+                          {memory.title}
+                        </span>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
             </motion.div>
           </div>
         )}
