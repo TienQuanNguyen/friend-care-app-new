@@ -977,8 +977,8 @@ export const Dashboard = () => {
                           src={frameImage}
                           alt={activeMemory?.title || 'Album Kỷ Niệm'}
                           draggable={false}
-                          className="h-full w-full select-none object-contain bg-canvas-dark"
-                          style={{ objectPosition, objectFit: 'contain' }}
+                          className="h-full w-full select-none object-cover"
+                          style={{ objectPosition }}
                         />
                       ) : (
                         <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-canvas-cool via-white to-brand-light/40 text-center">
