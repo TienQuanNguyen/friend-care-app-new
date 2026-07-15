@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, Variants, AnimatePresence } from 'framer-motion';
 import { Card } from '../components/ui/Card';
 import { useCareSpace } from '../contexts/CareSpaceContext';
-import { Smile, Calendar as CalendarIcon, Heart, Users, Utensils, Image as ImageIcon, Sparkles, X, RefreshCw, Disc3, Plus, ExternalLink, Music, Trash2 } from 'lucide-react';
+import { Smile, Calendar as CalendarIcon, Heart, Users, Flame, Utensils, Image as ImageIcon, Sparkles, X, RefreshCw, Disc, Disc3, Plus, ExternalLink, Music, Trash2, MoreHorizontal } from 'lucide-react';
 import { moodService } from '../services/moodService';
 import { scheduleService } from '../services/scheduleService';
 import { foodService } from '../services/foodService';
@@ -111,6 +111,7 @@ export const Dashboard = () => {
   );
   const [isDraggingMemoryFrame, setIsDraggingMemoryFrame] = useState(false);
   const [activeMemoryReactionPickerId, setActiveMemoryReactionPickerId] = useState<string | null>(null);
+  const [showMemoryGallery, setShowMemoryGallery] = useState(false);
   const memoryFileInputRef = React.useRef<HTMLInputElement>(null);
   const memoryFrameDragRef = React.useRef<{
     id: string;
@@ -1098,6 +1099,21 @@ export const Dashboard = () => {
                           Bày tỏ ✨
                         </button>
 
+                        {memories.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowMemoryGallery(prev => !prev)}
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border shadow-sm transition-colors ${
+                              showMemoryGallery
+                                ? 'border-brand bg-brand-light text-brand-house font-bold'
+                                : 'border-canvas-dark bg-white text-text-soft hover:border-brand-light hover:bg-brand-light/25'
+                            }`}
+                            title={showMemoryGallery ? "Ẩn danh sách ảnh" : "Hiển thị danh sách ảnh"}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        )}
+
                         <AnimatePresence>
                           {activeMemoryReactionPickerId === activeMemory.id && (
                             <motion.div
@@ -1129,8 +1145,8 @@ export const Dashboard = () => {
                     );
                   })()}
 
-                  {memories.length > 1 && (
-                    <div className="mt-4 flex justify-center gap-2 overflow-x-auto px-1 pb-1">
+                  {memories.length > 1 && showMemoryGallery && (
+                    <div className="mt-4 flex justify-center gap-2 overflow-x-auto px-1 pb-1 animate-in fade-in slide-in-from-bottom-2 duration-300">
                       {memories.slice(0, 10).map(memory => (
                         <button
                           key={memory.id}
