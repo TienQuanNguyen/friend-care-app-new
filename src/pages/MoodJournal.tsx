@@ -99,63 +99,6 @@ const MOOD_STYLES: Record<string, { bg: string; text: string; border: string; ic
     text: 'text-rose-700',
     border: 'border-rose-200',
     iconBg: 'bg-rose-100',
-  { name: 'Hạnh phúc', icon: Sparkles },
-  { name: 'Buồn bã', icon: Frown },
-  { name: 'Mệt mỏi', icon: Coffee },
-  { name: 'Căng thẳng', icon: Activity },
-  { name: 'Nhớ người ấy', icon: Heart },
-  { name: 'Bình yên', icon: Leaf },
-  { name: 'Phấn khích', icon: Zap },
-];
-
-const MOOD_STYLES: Record<string, { bg: string; text: string; border: string; iconBg: string; iconColor: string }> = {
-  'Hạnh phúc': {
-    bg: 'bg-amber-50',
-    text: 'text-amber-700',
-    border: 'border-amber-200',
-    iconBg: 'bg-amber-100',
-    iconColor: 'text-amber-600'
-  },
-  'Bình yên': {
-    bg: 'bg-emerald-50',
-    text: 'text-emerald-700',
-    border: 'border-emerald-200',
-    iconBg: 'bg-emerald-100',
-    iconColor: 'text-emerald-600'
-  },
-  'Buồn bã': {
-    bg: 'bg-blue-50',
-    text: 'text-blue-700',
-    border: 'border-blue-200',
-    iconBg: 'bg-blue-100',
-    iconColor: 'text-blue-600'
-  },
-  'Mệt mỏi': {
-    bg: 'bg-orange-50',
-    text: 'text-orange-700',
-    border: 'border-orange-200',
-    iconBg: 'bg-orange-100',
-    iconColor: 'text-orange-600'
-  },
-  'Căng thẳng': {
-    bg: 'bg-purple-50',
-    text: 'text-purple-700',
-    border: 'border-purple-200',
-    iconBg: 'bg-purple-100',
-    iconColor: 'text-purple-600'
-  },
-  'Nhớ người ấy': {
-    bg: 'bg-pink-50',
-    text: 'text-pink-700',
-    border: 'border-pink-200',
-    iconBg: 'bg-pink-100',
-    iconColor: 'text-pink-600'
-  },
-  'Phấn khích': {
-    bg: 'bg-rose-50',
-    text: 'text-rose-700',
-    border: 'border-rose-200',
-    iconBg: 'bg-rose-100',
     iconColor: 'text-rose-600'
   }
 };
