@@ -45,7 +45,7 @@ const statusLabels = {
   read: 'Đã xem',
 };
 
-const QUICK_REACTIONS = ['❤️', '😂', '👍'];
+const QUICK_REACTIONS = ['❤️', '😂', '🥺', '🥰', '😘', '😢', '😡'];
 
 // ---------------------------------------------------------------------------
 // Sub-component: Reply Preview
