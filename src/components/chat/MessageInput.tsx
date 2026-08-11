@@ -215,7 +215,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const canSend = text.trim().length > 0 && !activeSending;
 
   return (
-    <div className="border-t border-canvas-dark bg-white">
+    <div
+      className="border-t border-canvas-dark bg-white shrink-0"
+      style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
+    >
       {/* Upload progress bar */}
       <AnimatePresence>
         {uploadProgress !== null && (
@@ -345,7 +348,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           rows={1}
           className={cn(
             'flex-1 resize-none bg-canvas-cool rounded-2xl px-4 py-2.5',
-            'text-[14px] text-text-main placeholder:text-text-soft',
+            'text-[16px] md:text-[14px] text-text-main placeholder:text-text-soft',
             'focus:outline-none focus:ring-2 focus:ring-brand/30 focus:bg-white',
             'transition-all duration-200 leading-snug',
             'max-h-28 overflow-y-auto scrollbar-thin disabled:opacity-75',

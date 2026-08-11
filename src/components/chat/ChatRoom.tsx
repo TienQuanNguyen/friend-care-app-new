@@ -103,6 +103,29 @@ export const ChatRoom: React.FC = () => {
   // ── Local sending state to prevent input lock bugs ────────────────────────
   const [isSending, setIsSending] = useState(false);
 
+  // ── Dynamic Visual Viewport Height for Mobile Keyboard ───────────────────
+  const [viewportHeight, setViewportHeight] = useState('calc(100dvh - 4rem)');
+
+  useEffect(() => {
+    if (!window.visualViewport) return;
+
+    const handleResize = () => {
+      if (!window.visualViewport) return;
+      const isMobile = window.innerWidth < 768;
+      const headerOffset = isMobile ? 64 : 0;
+      setViewportHeight(`${window.visualViewport.height - headerOffset}px`);
+    };
+
+    window.visualViewport.addEventListener('resize', handleResize);
+    window.visualViewport.addEventListener('scroll', handleResize);
+    handleResize();
+
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleResize);
+      window.visualViewport?.removeEventListener('scroll', handleResize);
+    };
+  }, []);
+
   // ── Reply state ───────────────────────────────────────────────────────────
   const [replyTo, setReplyTo] = useState<ChatMessageWithSender | null>(null);
 
@@ -400,26 +423,16 @@ export const ChatRoom: React.FC = () => {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-4rem)] md:h-[calc(100dvh-0px)] bg-canvas">
-      {/* ── Header ── */}
-      <div className="shrink-0 flex items-center gap-3 px-4 py-3 bg-white border-b border-canvas-dark shadow-nav z-10 select-none">
-        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand to-brand-accent flex items-center justify-center shadow-frap-base">
-          <MessageCircleDashed className="w-4 h-4 text-white" />
+    <div
+      style={{ height: viewportHeight }}
+      className="flex flex-col min-h-0 bg-canvas overflow-hidden relative"
+    >
+      {/* Floating Connection Status Badge (No header takes up vertical space) */}
+      {error && (
+        <div className="absolute top-4 right-4 z-50 flex items-center gap-1.5 text-[11px] bg-red-50 text-semantic-destructive font-semibold px-3 py-1.5 rounded-full shadow border border-red-200 animate-pulse select-none">
+          <WifiOff className="w-3.5 h-3.5" /> Mất kết nối
         </div>
-        <div>
-          <h1 className="text-[15px] font-bold text-text-main tracking-tight leading-tight">
-            Chat phòng
-          </h1>
-          <p className="text-[11px] text-text-soft">
-            {careSpace?.name ?? '…'}
-          </p>
-        </div>
-        {error && (
-          <div className="ml-auto flex items-center gap-1 text-[11px] text-semantic-destructive font-medium">
-            <WifiOff className="w-3.5 h-3.5" /> Mất kết nối
-          </div>
-        )}
-      </div>
+      )}
 
       {/* ── Pinned Message Banner ── */}
       <AnimatePresence>
@@ -428,7 +441,7 @@ export const ChatRoom: React.FC = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="shrink-0 bg-brand-light/30 border-b border-brand-light/60 px-4 py-2 flex items-center gap-3 shadow-sm select-none cursor-pointer z-10"
+            className="shrink-0 bg-brand-light/30 border-b border-brand-light/60 px-4 py-2.5 flex items-center gap-3 shadow-sm select-none cursor-pointer z-10"
             onClick={() => handleScrollToMessage(newestPinnedMessage.id)}
           >
             <Pin className="w-4 h-4 text-brand-accent rotate-45 shrink-0" />
