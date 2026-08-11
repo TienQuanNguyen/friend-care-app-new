@@ -8,7 +8,8 @@
  *  - Text wraps properly without overflowing via break-words and whitespace-pre-wrap.
  *  - Sender (Right): wrapper uses flex flex-col items-end, bubble is bg-teal-700 text-white.
  *  - Receiver (Left): wrapper uses flex flex-col items-start, bubble is bg-white text-gray-800 shadow-sm.
- *  - Timestamp: placed outside and below the bubble with mt-1 text-xs text-gray-400.
+ *  - Timestamp & Status: placed outside and below the bubble with mt-1 text-xs text-gray-400.
+ *    Shows delivery status (Đang gửi, Đã gửi, Đã nhận, Đã xem) for own messages.
  */
 
 import React from 'react';
@@ -22,12 +23,21 @@ export interface MessageBubbleProps {
   message: ChatMessageWithSender;
   isOwn: boolean;
   isPending?: boolean;
+  status?: 'sending' | 'sent' | 'received' | 'read';
 }
+
+const statusLabels = {
+  sending: 'Đang gửi',
+  sent: 'Đã gửi',
+  received: 'Đã nhận',
+  read: 'Đã xem',
+};
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   isOwn,
   isPending = false,
+  status,
 }) => {
   const timeLabel = format(new Date(message.created_at), 'HH:mm', { locale: vi });
   const avatarEmoji = message.sender?.avatar_emoji ?? '👤';
@@ -76,7 +86,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             isOwn
               ? 'px-4 py-2 rounded-2xl rounded-tr-sm bg-teal-700 text-white'
               : 'px-4 py-2 rounded-2xl rounded-tl-sm bg-white text-gray-800 shadow-sm',
-            // Special styling for non-deleted media or emojis to prevent nesting inside solid colors
             message.type === 'EMOJI' && !message.is_deleted && 'bg-transparent border-0 shadow-none p-1 text-4xl',
             message.type === 'IMAGE' && !message.is_deleted && 'bg-transparent border-0 shadow-none p-0',
             message.type === 'VIDEO' && !message.is_deleted && 'bg-transparent border-0 shadow-none p-0'
@@ -109,9 +118,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </div>
 
-        {/* Timestamp - Positioned outside and below the message bubble container */}
+        {/* Timestamp & Status Indicator - Positioned outside and below */}
         <span className="text-[11px] text-gray-400 mt-1 px-1 select-none">
           {timeLabel}
+          {isOwn && status && ` • ${statusLabels[status]}`}
         </span>
       </div>
     </motion.div>

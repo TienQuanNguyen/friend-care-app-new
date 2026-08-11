@@ -8,6 +8,7 @@
  *  - "Load more" button at top for older pages (cursor-based).
  *  - Date separator dividers.
  *  - Skeleton loading state.
+ *  - Dynamically calculates message delivery status for own messages.
  */
 
 import React, { useEffect, useRef, useCallback } from 'react';
@@ -32,6 +33,10 @@ export interface MessageListProps {
   onLoadMore: () => void;
   /** Set of optimistic message IDs that are pending server confirmation. */
   pendingIds?: Set<string>;
+  /** Whether the partner is currently online in the chat room. */
+  isPartnerOnline: boolean;
+  /** The newest message ID read by the partner. */
+  partnerLastReadMessageId: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,12 +99,12 @@ export const MessageList: React.FC<MessageListProps> = ({
   hasMore,
   onLoadMore,
   pendingIds,
+  isPartnerOnline,
+  partnerLastReadMessageId,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Track previous message count so we only auto-scroll for NEW messages,
-  // not when loading older ones (which would jump the viewport).
   const prevCountRef = useRef(messages.length);
   const userScrolledUpRef = useRef(false);
 
@@ -115,7 +120,6 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages.length]);
 
-  // Reset "scrolled up" flag when user reaches the bottom manually
   const handleScroll = useCallback(() => {
     const el = listRef.current;
     if (!el) return;
@@ -123,7 +127,6 @@ export const MessageList: React.FC<MessageListProps> = ({
     userScrolledUpRef.current = distanceFromBottom > 80;
   }, []);
 
-  // Messages come in newest-first from the hook; reverse for display
   const displayed = [...messages].reverse();
 
   // Build date-separator insertion map
@@ -137,6 +140,13 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
     withSeparators.push({ type: 'message', msg });
   }
+
+  // Pre-resolve the partner's last read message timestamp for fast O(1) comparison in the loop
+  const partnerLastReadTime = React.useMemo(() => {
+    if (!partnerLastReadMessageId) return null;
+    const match = messages.find((m) => m.id === partnerLastReadMessageId);
+    return match ? new Date(match.created_at).getTime() : null;
+  }, [messages, partnerLastReadMessageId]);
 
   return (
     <div
@@ -198,12 +208,33 @@ export const MessageList: React.FC<MessageListProps> = ({
           const isOwn = msg.sender_id === currentUserId;
           const isPending = pendingIds?.has(msg.id) ?? false;
 
+          // Determine message status
+          let status: 'sending' | 'sent' | 'received' | 'read' | undefined;
+          if (isOwn) {
+            if (isPending) {
+              status = 'sending';
+            } else {
+              const isRead = partnerLastReadTime
+                ? new Date(msg.created_at).getTime() <= partnerLastReadTime
+                : false;
+
+              if (isRead) {
+                status = 'read';
+              } else if (isPartnerOnline) {
+                status = 'received';
+              } else {
+                status = 'sent';
+              }
+            }
+          }
+
           return (
             <MessageBubble
               key={msg.id}
               message={msg}
               isOwn={isOwn}
               isPending={isPending}
+              status={status}
             />
           );
         })}

@@ -8,7 +8,7 @@
  *  - Emoji picker shortcut (6 common emojis).
  *  - Image / video file picker (hidden <input>).
  *  - Upload progress bar.
- *  - Typing presence broadcast via Supabase Presence API.
+ *  - Typing events propagated to parent via onTypingChange.
  *  - Sends on Enter (Shift+Enter = new line) or Send button tap.
  *  - Touch-friendly hit targets (min-44px).
  *  - Fixes infinite loading: strict try...catch...finally blocks to unlock input.
@@ -30,7 +30,6 @@ import {
   X,
   Loader2,
 } from 'lucide-react';
-import type { RealtimeChannel } from '@supabase/supabase-js';
 import { cn } from '../../lib/utils';
 
 // ---------------------------------------------------------------------------
@@ -48,10 +47,8 @@ export interface MessageInputProps {
   uploadProgress: number | null;
   /** Whether a send/upload is in flight. */
   isSending: boolean;
-  /** Supabase Realtime Presence channel for typing indicators. */
-  presenceChannel: RealtimeChannel | null;
-  /** The current user's ID — used as the Presence key. */
-  currentUserId: string;
+  /** Callback triggered when user starts or stops typing. */
+  onTypingChange?: (isTyping: boolean) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,8 +73,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onSendEmoji,
   uploadProgress,
   isSending,
-  presenceChannel,
-  currentUserId,
+  onTypingChange,
 }) => {
   const [text, setText] = useState('');
   const [showEmojis, setShowEmojis] = useState(false);
@@ -112,20 +108,19 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   // ---------------------------------------------------------------------------
 
   const broadcastTypingStop = useCallback(() => {
-    if (!presenceChannel || !isTypingRef.current) return;
+    if (!isTypingRef.current) return;
     isTypingRef.current = false;
-    void presenceChannel.track({ user_id: currentUserId, isTyping: false });
-  }, [presenceChannel, currentUserId]);
+    onTypingChange?.(false);
+  }, [onTypingChange]);
 
   const broadcastTypingStart = useCallback(() => {
-    if (!presenceChannel) return;
     if (!isTypingRef.current) {
       isTypingRef.current = true;
-      void presenceChannel.track({ user_id: currentUserId, isTyping: true });
+      onTypingChange?.(true);
     }
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(broadcastTypingStop, TYPING_STOP_DELAY_MS);
-  }, [presenceChannel, currentUserId, broadcastTypingStop]);
+  }, [onTypingChange, broadcastTypingStop]);
 
   useEffect(() => {
     return () => {

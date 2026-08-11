@@ -4,9 +4,9 @@
  * Top-level chat page component. Wires together:
  *  - useChatMessages (Phase 1 hook) for data + Realtime messages
  *  - useMediaUpload for file uploads
- *  - Supabase Presence for typing indicators
+ *  - Supabase Presence for typing indicators & message read/received delivery status
  *  - MessageList + MessageInput UI components
- *  - Optimistic UI (pending message state)
+ *  - Optimistic UI (pending message state) with safe immediate cleanup to prevent duplicates
  *
  * The chat is scoped to the current user's care space.
  * The layout is full-height inside AppLayout's <main> scroll container,
@@ -39,6 +39,7 @@ import type { ChatMessageWithSender, MessageType } from '../../types/chat';
 interface PresenceState {
   user_id: string;
   isTyping: boolean;
+  lastReadMessageId: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +88,7 @@ export const ChatRoom: React.FC = () => {
   // ── Local sending state to prevent input lock bugs ────────────────────────
   const [isSending, setIsSending] = useState(false);
 
-  // ── Optimistic UI ─────────────────────────────────────────────────────────
+  // ── Optimistic UI ────────────────────────────────----------------─────────
   const [pendingMessages, setPendingMessages] = useState<
     Map<string, ChatMessageWithSender>
   >(new Map());
@@ -122,10 +123,14 @@ export const ChatRoom: React.FC = () => {
     return [...pending, ...messages];
   }, [messages, pendingMessages]);
 
-  // ── Typing presence ───────────────────────────────────────────────────────
+  // ── Typing presence & Read status state ────────────────────────────────────
   const presenceChannelRef = useRef<RealtimeChannel | null>(null);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [isMyTyping, setIsMyTyping] = useState(false);
+  const [isPartnerOnline, setIsPartnerOnline] = useState(false);
+  const [partnerLastReadMessageId, setPartnerLastReadMessageId] = useState<string | null>(null);
 
+  // Listen to Presence channel updates
   useEffect(() => {
     if (!careSpaceId || !user) return;
 
@@ -137,11 +142,28 @@ export const ChatRoom: React.FC = () => {
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState<PresenceState>();
+        
+        // 1. Determine if partner is online
+        const onlinePartner = Object.keys(state).find((id) => id !== user.id);
+        setIsPartnerOnline(!!onlinePartner);
+
+        // 2. Determine typing users
         const typing = Object.entries(state)
           .flatMap(([, presences]) => presences)
           .filter((p) => p.isTyping && p.user_id !== user.id)
           .map((p) => p.user_id);
         setTypingUsers(typing);
+
+        // 3. Track partner's last read message ID
+        const partnerPresence = Object.entries(state)
+          .flatMap(([, presences]) => presences)
+          .find((p) => p.user_id !== user.id);
+        
+        if (partnerPresence?.lastReadMessageId) {
+          setPartnerLastReadMessageId(partnerPresence.lastReadMessageId);
+        } else {
+          setPartnerLastReadMessageId(null);
+        }
       })
       .subscribe();
 
@@ -152,6 +174,18 @@ export const ChatRoom: React.FC = () => {
       presenceChannelRef.current = null;
     };
   }, [careSpaceId, user]);
+
+  // Broadcast our own presence details (typing and last read message ID)
+  const newestMessageId = messages[0]?.id || null;
+
+  useEffect(() => {
+    if (!presenceChannelRef.current || !user) return;
+    void presenceChannelRef.current.track({
+      user_id: user.id,
+      isTyping: isMyTyping,
+      lastReadMessageId: newestMessageId,
+    });
+  }, [isMyTyping, newestMessageId, user]);
 
   const typingNames = useMemo(() => {
     return typingUsers
@@ -205,8 +239,8 @@ export const ChatRoom: React.FC = () => {
         });
       } catch (err) {
         console.error('[ChatRoom] sendMessage failed:', err);
-        removePending(tempId);
       } finally {
+        removePending(tempId);
         setIsSending(false);
       }
     },
@@ -226,8 +260,8 @@ export const ChatRoom: React.FC = () => {
         });
       } catch (err) {
         console.error('[ChatRoom] sendMessage failed:', err);
-        removePending(tempId);
       } finally {
+        removePending(tempId);
         setIsSending(false);
       }
     },
@@ -249,6 +283,8 @@ export const ChatRoom: React.FC = () => {
             type,
           });
         } catch {
+          // ignore
+        } finally {
           removePending(tempId);
         }
       } catch (err) {
@@ -305,6 +341,8 @@ export const ChatRoom: React.FC = () => {
         hasMore={hasMore}
         onLoadMore={loadMore}
         pendingIds={pendingIds}
+        isPartnerOnline={isPartnerOnline}
+        partnerLastReadMessageId={partnerLastReadMessageId}
       />
 
       {/* ── Typing indicator ── */}
@@ -346,8 +384,7 @@ export const ChatRoom: React.FC = () => {
         onSendEmoji={handleSendEmoji}
         uploadProgress={uploadProgress}
         isSending={activeSending}
-        presenceChannel={presenceChannelRef.current}
-        currentUserId={user.id}
+        onTypingChange={setIsMyTyping}
       />
     </div>
   );
