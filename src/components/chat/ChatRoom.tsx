@@ -105,6 +105,7 @@ export const ChatRoom: React.FC = () => {
 
   // ── Dynamic Visual Viewport Height for Mobile Keyboard ───────────────────
   const [viewportHeight, setViewportHeight] = useState('calc(100dvh - 4rem)');
+  const [viewportTop, setViewportTop] = useState('0px');
 
   useEffect(() => {
     if (!window.visualViewport) return;
@@ -113,7 +114,11 @@ export const ChatRoom: React.FC = () => {
       if (!window.visualViewport) return;
       const isMobile = window.innerWidth < 768;
       const headerOffset = isMobile ? 64 : 0;
+      
+      // Calculate height of visible area minus header
       setViewportHeight(`${window.visualViewport.height - headerOffset}px`);
+      // Translate offsetTop to absolute positioning top coordinate
+      setViewportTop(`${window.visualViewport.offsetTop + headerOffset}px`);
     };
 
     window.visualViewport.addEventListener('resize', handleResize);
@@ -424,8 +429,14 @@ export const ChatRoom: React.FC = () => {
 
   return (
     <div
-      style={{ height: viewportHeight }}
-      className="flex flex-col min-h-0 bg-canvas overflow-hidden relative"
+      style={{
+        position: 'absolute',
+        top: viewportTop,
+        left: 0,
+        right: 0,
+        height: viewportHeight,
+      }}
+      className="flex flex-col min-h-0 bg-canvas overflow-hidden"
     >
       {/* Floating Connection Status Badge (No header takes up vertical space) */}
       {error && (
