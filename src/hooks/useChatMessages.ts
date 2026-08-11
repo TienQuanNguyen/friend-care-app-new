@@ -46,8 +46,10 @@ const LIMIT = 20;
  * The Supabase select string used for all message fetches.
  *
  * Joins:
- *  - `sender:profiles!sender_id` → resolves sender's display_name + avatar_emoji
- *  - `reply_to:chat_messages!reply_to_id` → one-level deep reply preview
+ *  - `sender:profiles!fk_chat_messages_sender` — explicit FK constraint name.
+ *    PostgREST resolves chat_messages.sender_id → profiles.user_id via this FK.
+ *  - `reply_to:chat_messages!chat_messages_reply_to_id_fkey` — self-join using
+ *    the Postgres auto-generated FK name for the reply_to_id column.
  *
  * Only the minimal columns needed for display are fetched to limit egress.
  */
@@ -60,11 +62,11 @@ const MESSAGE_SELECT = `
   reply_to_id,
   is_deleted,
   created_at,
-  sender:profiles!sender_id (
+  sender:profiles!fk_chat_messages_sender (
     display_name,
     avatar_emoji
   ),
-  reply_to:chat_messages!reply_to_id (
+  reply_to:chat_messages!chat_messages_reply_to_id_fkey (
     id,
     content,
     type,

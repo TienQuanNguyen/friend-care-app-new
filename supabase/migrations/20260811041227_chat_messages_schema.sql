@@ -19,7 +19,9 @@ CREATE TABLE public.chat_messages (
                             REFERENCES public.care_spaces(id)
                             ON DELETE CASCADE,
 
-  -- The authenticated user who sent this message
+  -- The authenticated user who sent this message.
+  -- References auth.users for referential integrity (cascade on auth delete).
+  -- A second FK to profiles.user_id is added below for PostgREST join support.
   sender_id     UUID        NOT NULL
                             REFERENCES auth.users(id)
                             ON DELETE CASCADE,
@@ -86,3 +88,15 @@ CREATE POLICY "Senders can soft-delete their own messages"
 -- 5. Realtime publication
 --    Enables postgres_changes events for INSERT and UPDATE on this table.
 ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
+
+-- 6. PostgREST join FK: sender_id → profiles.user_id
+--    PostgREST cannot traverse auth.users (it lives outside the public schema).
+--    Adding an explicit named FK to profiles.user_id (which has a UNIQUE
+--    constraint) lets us write:
+--      .select('sender:profiles!fk_chat_messages_sender(display_name,avatar_emoji)')
+--    without any ambiguity in the schema cache.
+ALTER TABLE public.chat_messages
+  ADD CONSTRAINT fk_chat_messages_sender
+  FOREIGN KEY (sender_id)
+  REFERENCES public.profiles(user_id)
+  ON DELETE CASCADE;
