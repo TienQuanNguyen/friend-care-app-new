@@ -94,18 +94,25 @@ export const ChatRoom: React.FC = () => {
 
   const pendingIds = useMemo(() => new Set(pendingMessages.keys()), [pendingMessages]);
 
-  // Remove from pending when we see the real INSERT arrive via Realtime.
+  // Remove from pending when we see a matching confirmed message in the stream (since temp IDs don't match database UUIDs).
   useEffect(() => {
     if (pendingMessages.size === 0) return;
-    const confirmedIds = new Set(messages.map((m) => m.id));
     const newPending = new Map(pendingMessages);
     let changed = false;
-    for (const [id] of newPending) {
-      if (confirmedIds.has(id)) {
-        newPending.delete(id);
+
+    for (const [tempId, pending] of newPending) {
+      const isConfirmed = messages.some(
+        (m) =>
+          m.sender_id === pending.sender_id &&
+          m.content === pending.content &&
+          m.type === pending.type
+      );
+      if (isConfirmed) {
+        newPending.delete(tempId);
         changed = true;
       }
     }
+
     if (changed) setPendingMessages(newPending);
   }, [messages, pendingMessages]);
 
