@@ -16,83 +16,15 @@
  */
 
 import {
-  createClient,
-  type SupabaseClient,
   type RealtimeChannel,
   type RealtimePostgresChangesPayload,
 } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import type { ChatMessage, RealtimeMessagePayload } from '../types/chat';
 
-// ---------------------------------------------------------------------------
-// Environment
-// ---------------------------------------------------------------------------
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error(
-    '[supabase/chat] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. ' +
-      'Check your .env.local file.',
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Standard client (data fetching / REST / Auth)
-// ---------------------------------------------------------------------------
-
-/**
- * The primary Supabase client for data operations.
- * Mirrors `src/lib/supabase.ts` but kept separate here so the chat module
- * can be developed and imported independently.
- *
- * Re-uses the publishable anon key — never expose the service_role key here.
- */
-export const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    // Persist session in localStorage so the Realtime auth token is always
-    // up to date without requiring an explicit re-login.
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: false,
-  },
-});
-
-// ---------------------------------------------------------------------------
-// Realtime client
-// ---------------------------------------------------------------------------
-
-/**
- * A dedicated Supabase client configured for Realtime subscriptions.
- *
- * Separate from the standard client so we can tune WebSocket-specific options
- * (heartbeat interval, reconnect policy, log level) without affecting REST calls.
- */
-export const supabaseRealtime: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: false,
-  },
-  realtime: {
-    /**
-     * How often (ms) the client sends a heartbeat ping to keep the WebSocket
-     * connection alive through proxies / load balancers.
-     * Supabase default is 30 000 ms; 25 000 ms gives a safety margin.
-     */
-    heartbeatIntervalMs: 25_000,
-    /**
-     * Number of reconnect attempts before the client gives up.
-     * Set to Infinity so the hook can handle the error and let React
-     * re-mount the subscription cleanly.
-     */
-    reconnectAfterMs: (tries: number) => Math.min(500 * tries, 10_000),
-    params: {
-      // Include the log_level param for easier debugging in development.
-      log_level: import.meta.env.DEV ? 'info' : 'error',
-    },
-  },
-});
+// Re-export the singleton client to prevent multiple GoTrueClient warnings in browser console
+export { supabase };
+export const supabaseRealtime = supabase;
 
 // ---------------------------------------------------------------------------
 // Channel factory

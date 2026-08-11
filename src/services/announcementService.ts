@@ -15,7 +15,7 @@ export const announcementService = {
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (error || !data) return null;
     return data as AppAnnouncement;
