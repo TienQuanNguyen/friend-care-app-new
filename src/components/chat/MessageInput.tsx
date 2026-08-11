@@ -177,8 +177,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   return (
     <div
-      className="border-t border-canvas-dark bg-white shrink-0"
-      style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
+      className="border-t border-canvas-dark bg-white shrink-0 flex flex-col"
     >
       {/* Upload progress bar */}
       <AnimatePresence>

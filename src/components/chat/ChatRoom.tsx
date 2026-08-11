@@ -114,13 +114,13 @@ export const ChatRoom: React.FC = () => {
     }
 
     if (!window.visualViewport) {
-      setViewportHeight('calc(100dvh - 4rem)');
+      setViewportHeight('100dvh');
       return;
     }
 
     const handleResize = () => {
       if (!window.visualViewport) return;
-      const headerOffset = 64; // pt-16 mobile nav bar height
+      const headerOffset = 0; // No header on chat page
       setViewportHeight(`${window.visualViewport.height - headerOffset}px`);
     };
 
@@ -435,9 +435,20 @@ export const ChatRoom: React.FC = () => {
       style={{ height: viewportHeight }}
       className="flex flex-col min-h-0 bg-canvas overflow-hidden w-full relative"
     >
-      {/* Floating Connection Status Badge (No header takes up vertical space) */}
+      {/* Floating Back Button for Mobile (Since header is hidden) */}
+      <div className="absolute top-2 left-2 z-50 md:hidden">
+        <button
+          onClick={() => window.history.back()}
+          className="p-2 bg-white/70 backdrop-blur-md rounded-full shadow-sm text-text-main hover:bg-white/90 border border-black/5"
+          aria-label="Quay lại"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+      </div>
+
+      {/* Floating Connection Status Badge */}
       {error && (
-        <div className="absolute top-4 right-4 z-50 flex items-center gap-1.5 text-[11px] bg-red-50 text-semantic-destructive font-semibold px-3 py-1.5 rounded-full shadow border border-red-200 animate-pulse select-none">
+        <div className="absolute top-4 right-14 z-50 flex items-center gap-1.5 text-[11px] bg-red-50 text-semantic-destructive font-semibold px-3 py-1.5 rounded-full shadow border border-red-200 animate-pulse select-none">
           <WifiOff className="w-3.5 h-3.5" /> Mất kết nối
         </div>
       )}

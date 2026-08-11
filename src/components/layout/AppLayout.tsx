@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCareSpace } from '../../contexts/CareSpaceContext';
+import { cn } from '../../lib/utils';
 
 /** Routes that should fill the viewport without the default padded container. */
 const FULL_HEIGHT_ROUTES = ['/chat'];
@@ -34,8 +35,8 @@ export const AppLayout = () => {
   return (
     <div className="flex h-screen bg-canvas overflow-hidden">
       <Sidebar />
-      <MobileNav />
-      <main className="flex-1 overflow-hidden pt-16 md:pt-0 relative flex flex-col">
+      {!isFullHeight && <MobileNav />}
+      <main className={cn("flex-1 overflow-hidden relative flex flex-col", !isFullHeight && "pt-16 md:pt-0")}>
         {isFullHeight ? (
           // Full-height routes: no wrapper padding, no inner scroll
           <div className="flex-1 flex flex-col overflow-hidden">
