@@ -4,11 +4,10 @@
  * Scrollable list of chat messages.
  *
  * Features:
- *  - Auto-scroll to bottom on new messages
- *  - "Load more" button at top for older pages (cursor-based)
- *  - Date separator dividers
- *  - Skeleton loading state
- *  - Animates in with framer-motion via AnimatePresence
+ *  - Auto-scroll to bottom on new messages.
+ *  - "Load more" button at top for older pages (cursor-based).
+ *  - Date separator dividers.
+ *  - Skeleton loading state.
  */
 
 import React, { useEffect, useRef, useCallback } from 'react';
@@ -31,7 +30,6 @@ export interface MessageListProps {
   isFetchingMore: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
-  onReply: (message: ChatMessageWithSender) => void;
   /** Set of optimistic message IDs that are pending server confirmation. */
   pendingIds?: Set<string>;
 }
@@ -51,9 +49,9 @@ const DateSeparator: React.FC<{ date: Date }> = ({ date }) => {
   else label = format(date, 'EEEE, dd/MM/yyyy', { locale: vi });
 
   return (
-    <div className="flex items-center gap-3 my-3 px-2">
+    <div className="flex items-center gap-3 my-4 px-2">
       <div className="flex-1 h-px bg-canvas-dark" />
-      <span className="text-[11px] font-semibold text-text-soft uppercase tracking-wider shrink-0">
+      <span className="text-[11px] font-semibold text-text-soft uppercase tracking-wider shrink-0 select-none">
         {label}
       </span>
       <div className="flex-1 h-px bg-canvas-dark" />
@@ -95,7 +93,6 @@ export const MessageList: React.FC<MessageListProps> = ({
   isFetchingMore,
   hasMore,
   onLoadMore,
-  onReply,
   pendingIds,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -112,8 +109,6 @@ export const MessageList: React.FC<MessageListProps> = ({
     const newCount = messages.length;
     prevCountRef.current = newCount;
 
-    // New messages (not a load-more page — load-more adds to the end/top of
-    // the array which is rendered first in the reversed list)
     const isNewMessage = newCount > prevCount;
     if (isNewMessage && !userScrolledUpRef.current) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -124,7 +119,6 @@ export const MessageList: React.FC<MessageListProps> = ({
   const handleScroll = useCallback(() => {
     const el = listRef.current;
     if (!el) return;
-    // If the user is within 80px of the bottom, consider them "at bottom"
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     userScrolledUpRef.current = distanceFromBottom > 80;
   }, []);
@@ -148,7 +142,7 @@ export const MessageList: React.FC<MessageListProps> = ({
     <div
       ref={listRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 space-y-1 scroll-smooth"
+      className="flex-1 overflow-y-auto overscroll-contain px-3 py-2 space-y-1 scroll-smooth"
       aria-label="Cuộc trò chuyện"
     >
       {/* Load-more trigger */}
@@ -210,7 +204,6 @@ export const MessageList: React.FC<MessageListProps> = ({
               message={msg}
               isOwn={isOwn}
               isPending={isPending}
-              onReply={onReply}
             />
           );
         })}

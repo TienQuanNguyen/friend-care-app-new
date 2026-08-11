@@ -4,14 +4,14 @@
  * Composer bar for the chat module.
  *
  * Features:
- *  - Auto-growing textarea (max 4 lines)
- *  - Emoji picker shortcut (6 common emojis)
- *  - Image / video file picker (hidden <input>)
- *  - Upload progress bar
- *  - Reply-to preview strip (dismissible)
- *  - Typing presence broadcast via Supabase Presence API
- *  - Sends on Enter (Shift+Enter = new line) or Send button tap
- *  - Touch-friendly hit targets (min-44px)
+ *  - Auto-growing textarea (max 4 lines).
+ *  - Emoji picker shortcut (6 common emojis).
+ *  - Image / video file picker (hidden <input>).
+ *  - Upload progress bar.
+ *  - Typing presence broadcast via Supabase Presence API.
+ *  - Sends on Enter (Shift+Enter = new line) or Send button tap.
+ *  - Touch-friendly hit targets (min-44px).
+ *  - Fixes infinite loading: strict try...catch...finally blocks to unlock input.
  */
 
 import React, {
@@ -28,12 +28,10 @@ import {
   Paperclip,
   Smile,
   X,
-  CornerDownRight,
   Loader2,
 } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { cn } from '../../lib/utils';
-import type { ChatMessageWithSender, MessageType } from '../../types/chat';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -46,10 +44,6 @@ export interface MessageInputProps {
   onSendMedia: (file: File) => Promise<void>;
   /** Called when the user taps an emoji shortcut. */
   onSendEmoji: (emoji: string) => Promise<void>;
-  /** The message currently being replied to; null = no active reply. */
-  replyTo: ChatMessageWithSender | null;
-  /** Clear the active reply. */
-  onCancelReply: () => void;
   /** Upload progress (0-100). Null when idle. */
   uploadProgress: number | null;
   /** Whether a send/upload is in flight. */
@@ -80,8 +74,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onSendText,
   onSendMedia,
   onSendEmoji,
-  replyTo,
-  onCancelReply,
   uploadProgress,
   isSending,
   presenceChannel,
@@ -89,10 +81,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 }) => {
   const [text, setText] = useState('');
   const [showEmojis, setShowEmojis] = useState(false);
+  const [isLocalSending, setIsLocalSending] = useState(false);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
+
+  const activeSending = isSending || isLocalSending;
 
   // ---------------------------------------------------------------------------
   // Auto-resize textarea
@@ -127,12 +123,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       isTypingRef.current = true;
       void presenceChannel.track({ user_id: currentUserId, isTyping: true });
     }
-    // Reset the stop-typing debounce
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     typingTimerRef.current = setTimeout(broadcastTypingStop, TYPING_STOP_DELAY_MS);
   }, [presenceChannel, currentUserId, broadcastTypingStop]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
@@ -141,7 +135,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   }, [broadcastTypingStop]);
 
   // ---------------------------------------------------------------------------
-  // Handlers
+  // Handlers wrapped in strict try...catch...finally to reset sending state
   // ---------------------------------------------------------------------------
 
   const handleTextChange = useCallback(
@@ -154,17 +148,23 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   const handleSendText = useCallback(async () => {
     const trimmed = text.trim();
-    if (!trimmed || isSending) return;
+    if (!trimmed || activeSending) return;
     broadcastTypingStop();
     setText('');
-    // Reset height
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
-    await onSendText(trimmed);
-  }, [text, isSending, broadcastTypingStop, onSendText]);
+
+    try {
+      setIsLocalSending(true);
+      await onSendText(trimmed);
+    } catch (err) {
+      console.error('[MessageInput] onSendText error:', err);
+    } finally {
+      setIsLocalSending(false);
+    }
+  }, [text, activeSending, broadcastTypingStop, onSendText]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      // Send on Enter (without Shift)
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         void handleSendText();
@@ -175,24 +175,40 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   const handleEmojiClick = useCallback(
     async (emoji: string) => {
+      if (activeSending) return;
       setShowEmojis(false);
-      await onSendEmoji(emoji);
+
+      try {
+        setIsLocalSending(true);
+        await onSendEmoji(emoji);
+      } catch (err) {
+        console.error('[MessageInput] onSendEmoji error:', err);
+      } finally {
+        setIsLocalSending(false);
+      }
     },
-    [onSendEmoji],
+    [onSendEmoji, activeSending],
   );
 
   const handleFileChange = useCallback(
     async (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (!file) return;
-      // Reset so the same file can be picked again
+      if (!file || activeSending) return;
       e.target.value = '';
-      await onSendMedia(file);
+
+      try {
+        setIsLocalSending(true);
+        await onSendMedia(file);
+      } catch (err) {
+        console.error('[MessageInput] onSendMedia error:', err);
+      } finally {
+        setIsLocalSending(false);
+      }
     },
-    [onSendMedia],
+    [onSendMedia, activeSending],
   );
 
-  const canSend = text.trim().length > 0 && !isSending;
+  const canSend = text.trim().length > 0 && !activeSending;
 
   return (
     <div className="border-t border-canvas-dark bg-white">
@@ -216,34 +232,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Reply-to strip */}
-      <AnimatePresence>
-        {replyTo && (
-          <motion.div
-            key="reply-strip"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            className="flex items-center gap-2 px-3 pt-2 pb-0"
-          >
-            <CornerDownRight className="w-3.5 h-3.5 text-brand shrink-0" />
-            <div className="flex-1 bg-brand-light/30 rounded-lg px-2.5 py-1.5 text-xs text-brand-accent border-l-2 border-brand">
-              <span className="font-semibold">{replyTo.sender?.display_name ?? 'Người dùng'}: </span>
-              <span className="opacity-80 truncate">
-                {replyTo.is_deleted ? 'Tin nhắn đã thu hồi' : (replyTo.content ?? '[Media]')}
-              </span>
-            </div>
-            <button
-              onClick={onCancelReply}
-              className="p-1 rounded-full hover:bg-canvas-cool text-text-soft hover:text-text-main transition-colors"
-              aria-label="Hủy trả lời"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Emoji picker */}
       <AnimatePresence>
         {showEmojis && (
@@ -257,8 +245,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             {QUICK_EMOJIS.map((emoji) => (
               <button
                 key={emoji}
+                disabled={activeSending}
                 onClick={() => void handleEmojiClick(emoji)}
-                className="text-2xl leading-none w-10 h-10 flex items-center justify-center rounded-xl hover:bg-canvas-cool active:scale-90 transition-all touch-manipulation"
+                className="text-2xl leading-none w-10 h-10 flex items-center justify-center rounded-xl hover:bg-canvas-cool active:scale-90 transition-all touch-manipulation disabled:opacity-50"
                 aria-label={`Gửi ${emoji}`}
               >
                 {emoji}
@@ -280,9 +269,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         {/* Emoji button */}
         <button
           type="button"
+          disabled={activeSending}
           onClick={() => setShowEmojis((v) => !v)}
           className={cn(
-            'shrink-0 w-9 h-9 flex items-center justify-center rounded-full transition-colors touch-manipulation',
+            'shrink-0 w-9 h-9 flex items-center justify-center rounded-full transition-colors touch-manipulation disabled:opacity-50',
             showEmojis
               ? 'bg-brand-light text-brand'
               : 'text-text-soft hover:text-brand hover:bg-brand-light/40',
@@ -296,7 +286,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          disabled={isSending}
+          disabled={activeSending}
           className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full text-text-soft hover:text-brand hover:bg-brand-light/40 transition-colors disabled:opacity-40 touch-manipulation"
           aria-label="Đính kèm ảnh hoặc video"
         >
@@ -316,6 +306,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         <textarea
           ref={textareaRef}
           value={text}
+          disabled={activeSending}
           onChange={handleTextChange}
           onKeyDown={handleKeyDown}
           placeholder="Nhắn gì đó…"
@@ -325,7 +316,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             'text-[14px] text-text-main placeholder:text-text-soft',
             'focus:outline-none focus:ring-2 focus:ring-brand/30 focus:bg-white',
             'transition-all duration-200 leading-snug',
-            'max-h-28 overflow-y-auto scrollbar-thin',
+            'max-h-28 overflow-y-auto scrollbar-thin disabled:opacity-75',
           )}
           aria-label="Tin nhắn"
         />
@@ -346,7 +337,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           )}
           aria-label="Gửi"
         >
-          {isSending ? (
+          {activeSending ? (
             <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
             <Send className="w-4 h-4 translate-x-px" />

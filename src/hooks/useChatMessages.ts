@@ -64,13 +64,6 @@ const MESSAGE_SELECT = `
   sender:profiles!fk_chat_messages_sender (
     display_name,
     avatar_emoji
-  ),
-  reply_to:chat_messages!reply_to_id (
-    id,
-    content,
-    type,
-    sender_id,
-    is_deleted
   )
 `.trim();
 
