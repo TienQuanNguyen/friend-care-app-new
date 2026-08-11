@@ -43,6 +43,10 @@ export interface ChatMessage {
   is_deleted: boolean;
   /** ISO-8601 UTC string from Postgres TIMESTAMPTZ. */
   created_at: string;
+  /** JSONB mapped user reactions, e.g. { "user_id": "❤️" } */
+  reactions?: Record<string, string>;
+  /** Pinned message flag */
+  is_pinned?: boolean;
 }
 
 // ---------------------------------------------------------------------------

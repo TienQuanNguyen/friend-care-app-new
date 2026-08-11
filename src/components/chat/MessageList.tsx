@@ -9,6 +9,7 @@
  *  - Date separator dividers.
  *  - Skeleton loading state.
  *  - Dynamically calculates message delivery status for own messages.
+ *  - Propagates reactions, pinning, replies, and deletes down to bubbles.
  */
 
 import React, { useEffect, useRef, useCallback } from 'react';
@@ -37,6 +38,11 @@ export interface MessageListProps {
   isPartnerOnline: boolean;
   /** The newest message ID read by the partner. */
   partnerLastReadMessageId: string | null;
+  /** Action handlers passed from ChatRoom */
+  onReply: (message: ChatMessageWithSender) => void;
+  onPin: (messageId: string, isPinned: boolean) => void;
+  onReact: (messageId: string, emoji: string) => void;
+  onDelete: (messageId: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -101,6 +107,10 @@ export const MessageList: React.FC<MessageListProps> = ({
   pendingIds,
   isPartnerOnline,
   partnerLastReadMessageId,
+  onReply,
+  onPin,
+  onReact,
+  onDelete,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -235,6 +245,11 @@ export const MessageList: React.FC<MessageListProps> = ({
               isOwn={isOwn}
               isPending={isPending}
               status={status}
+              currentUserId={currentUserId}
+              onReply={onReply}
+              onPin={onPin}
+              onReact={onReact}
+              onDelete={onDelete}
             />
           );
         })}

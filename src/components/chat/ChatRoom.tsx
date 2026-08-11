@@ -7,10 +7,10 @@
  *  - Supabase Presence for typing indicators & message read/received delivery status
  *  - MessageList + MessageInput UI components
  *  - Optimistic UI (pending message state) with safe immediate cleanup to prevent duplicates
- *
- * The chat is scoped to the current user's care space.
- * The layout is full-height inside AppLayout's <main> scroll container,
- * but the chat list itself has its own internal scroll so the input stays pinned.
+ *  - Message Pinning Banner with scroll-to-message click behaviors.
+ *  - Emojis reaction toggling persisted to the database.
+ *  - Message reply thread context propagation.
+ *  - Soft-deletes (Recall) via softDeleteMessage.
  */
 
 import React, {
@@ -21,11 +21,17 @@ import React, {
   useMemo,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircleDashed, WifiOff } from 'lucide-react';
+import { MessageCircleDashed, WifiOff, Pin, X } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCareSpace } from '../../contexts/CareSpaceContext';
-import { useChatMessages, sendMessage } from '../../hooks/useChatMessages';
+import {
+  useChatMessages,
+  sendMessage,
+  softDeleteMessage,
+  updateMessageReactions,
+  togglePinMessage,
+} from '../../hooks/useChatMessages';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
 import { supabaseRealtime } from '../../utils/supabase';
 import { MessageList } from './MessageList';
@@ -53,6 +59,7 @@ function makePendingMessage(
   content: string | null,
   type: MessageType,
   senderProfile: { display_name: string; avatar_emoji: string } | null,
+  replyTo: ChatMessageWithSender | null,
 ): ChatMessageWithSender {
   return {
     id,
@@ -60,11 +67,19 @@ function makePendingMessage(
     sender_id: senderId,
     content,
     type,
-    reply_to_id: null,
+    reply_to_id: replyTo?.id ?? null,
     is_deleted: false,
     created_at: new Date().toISOString(),
     sender: senderProfile,
-    reply_to: null,
+    reply_to: replyTo
+      ? {
+          id: replyTo.id,
+          content: replyTo.content,
+          type: replyTo.type,
+          sender_id: replyTo.sender_id,
+          is_deleted: replyTo.is_deleted,
+        }
+      : null,
   };
 }
 
@@ -88,7 +103,10 @@ export const ChatRoom: React.FC = () => {
   // ── Local sending state to prevent input lock bugs ────────────────────────
   const [isSending, setIsSending] = useState(false);
 
-  // ── Optimistic UI ────────────────────────────────----------------─────────
+  // ── Reply state ───────────────────────────────────────────────────────────
+  const [replyTo, setReplyTo] = useState<ChatMessageWithSender | null>(null);
+
+  // ── Optimistic UI ─────────────────────────────────────────────────────────
   const [pendingMessages, setPendingMessages] = useState<
     Map<string, ChatMessageWithSender>
   >(new Map());
@@ -122,6 +140,24 @@ export const ChatRoom: React.FC = () => {
     const pending = [...pendingMessages.values()];
     return [...pending, ...messages];
   }, [messages, pendingMessages]);
+
+  // ── Pinned messages banner preview ────────────────────────────────────────
+  const newestPinnedMessage = useMemo(() => {
+    return messages.find((m) => m.is_pinned && !m.is_deleted) || null;
+  }, [messages]);
+
+  // Scroll to message utility
+  const handleScrollToMessage = useCallback((messageId: string) => {
+    const el = document.getElementById(`msg-${messageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Temporary highlight animation
+      el.classList.add('bg-brand-light/35');
+      setTimeout(() => {
+        el.classList.remove('bg-brand-light/35');
+      }, 1500);
+    }
+  }, []);
 
   // ── Typing presence & Read status state ────────────────────────────────────
   const presenceChannelRef = useRef<RealtimeChannel | null>(null);
@@ -211,11 +247,12 @@ export const ChatRoom: React.FC = () => {
         content,
         type,
         myProfile ? { display_name: myProfile.display_name, avatar_emoji: myProfile.avatar_emoji } : null,
+        replyTo,
       );
       setPendingMessages((prev) => new Map(prev).set(tempId, pending));
       return tempId;
     },
-    [user, careSpaceId, myProfile],
+    [user, careSpaceId, myProfile, replyTo],
   );
 
   const removePending = useCallback((tempId: string) => {
@@ -230,12 +267,15 @@ export const ChatRoom: React.FC = () => {
     async (text: string) => {
       if (!user || !careSpaceId) return;
       const tempId = addOptimistic(text, 'TEXT');
+      const currentReply = replyTo;
+      setReplyTo(null);
 
       try {
         setIsSending(true);
         await sendMessage(careSpaceId, user.id, {
           content: text,
           type: 'TEXT',
+          replyToId: currentReply?.id,
         });
       } catch (err) {
         console.error('[ChatRoom] sendMessage failed:', err);
@@ -244,19 +284,22 @@ export const ChatRoom: React.FC = () => {
         setIsSending(false);
       }
     },
-    [user, careSpaceId, addOptimistic, removePending],
+    [user, careSpaceId, replyTo, addOptimistic, removePending],
   );
 
   const handleSendEmoji = useCallback(
     async (emoji: string) => {
       if (!user || !careSpaceId) return;
       const tempId = addOptimistic(emoji, 'EMOJI');
+      const currentReply = replyTo;
+      setReplyTo(null);
 
       try {
         setIsSending(true);
         await sendMessage(careSpaceId, user.id, {
           content: emoji,
           type: 'EMOJI',
+          replyToId: currentReply?.id,
         });
       } catch (err) {
         console.error('[ChatRoom] sendMessage failed:', err);
@@ -265,7 +308,7 @@ export const ChatRoom: React.FC = () => {
         setIsSending(false);
       }
     },
-    [user, careSpaceId, addOptimistic, removePending],
+    [user, careSpaceId, replyTo, addOptimistic, removePending],
   );
 
   const handleSendMedia = useCallback(
@@ -276,11 +319,14 @@ export const ChatRoom: React.FC = () => {
         setIsSending(true);
         const { publicUrl, type } = await upload(file, user.id);
         const tempId = addOptimistic(publicUrl, type);
+        const currentReply = replyTo;
+        setReplyTo(null);
 
         try {
           await sendMessage(careSpaceId, user.id, {
             content: publicUrl,
             type,
+            replyToId: currentReply?.id,
           });
         } catch {
           // ignore
@@ -293,8 +339,51 @@ export const ChatRoom: React.FC = () => {
         setIsSending(false);
       }
     },
-    [user, careSpaceId, upload, addOptimistic, removePending],
+    [user, careSpaceId, upload, replyTo, addOptimistic, removePending],
   );
+
+  // ── Reaction, Pin, and Recall handlers ────────────────────────────────────
+
+  const handleReact = useCallback(
+    async (messageId: string, emoji: string) => {
+      if (!user) return;
+      const match = messages.find((m) => m.id === messageId);
+      if (!match) return;
+
+      const currentReactions = match.reactions || {};
+      const newReactions = { ...currentReactions };
+
+      if (newReactions[user.id] === emoji) {
+        delete newReactions[user.id];
+      } else {
+        newReactions[user.id] = emoji;
+      }
+
+      try {
+        await updateMessageReactions(messageId, newReactions);
+      } catch (err) {
+        console.error('[ChatRoom] handleReact failed:', err);
+      }
+    },
+    [user, messages],
+  );
+
+  const handlePin = useCallback(async (messageId: string, isPinned: boolean) => {
+    try {
+      await togglePinMessage(messageId, isPinned);
+    } catch (err) {
+      console.error('[ChatRoom] handlePin failed:', err);
+    }
+  }, []);
+
+  const handleRecall = useCallback(async (messageId: string) => {
+    if (!window.confirm('Bạn có chắc chắn muốn thu hồi tin nhắn này?')) return;
+    try {
+      await softDeleteMessage(messageId);
+    } catch (err) {
+      console.error('[ChatRoom] handleRecall failed:', err);
+    }
+  }, []);
 
   const activeSending = isSending || isUploading;
 
@@ -332,6 +421,38 @@ export const ChatRoom: React.FC = () => {
         )}
       </div>
 
+      {/* ── Pinned Message Banner ── */}
+      <AnimatePresence>
+        {newestPinnedMessage && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="shrink-0 bg-brand-light/30 border-b border-brand-light/60 px-4 py-2 flex items-center gap-3 shadow-sm select-none cursor-pointer z-10"
+            onClick={() => handleScrollToMessage(newestPinnedMessage.id)}
+          >
+            <Pin className="w-4 h-4 text-brand-accent rotate-45 shrink-0" />
+            <div className="flex-1 text-xs text-brand-accent truncate">
+              <span className="font-bold">Ghim: </span>
+              <span className="opacity-90">
+                {newestPinnedMessage.sender?.display_name ?? 'Người dùng'}:{' '}
+                {newestPinnedMessage.is_deleted ? 'Tin nhắn đã thu hồi' : (newestPinnedMessage.content ?? '[Media]')}
+              </span>
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation(); // prevent triggering scroll-to click
+                void handlePin(newestPinnedMessage.id, false);
+              }}
+              className="p-1 rounded-full hover:bg-brand-light/60 text-brand-accent transition-colors"
+              title="Bỏ ghim"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Message list ── */}
       <MessageList
         messages={allMessages}
@@ -343,6 +464,10 @@ export const ChatRoom: React.FC = () => {
         pendingIds={pendingIds}
         isPartnerOnline={isPartnerOnline}
         partnerLastReadMessageId={partnerLastReadMessageId}
+        onReply={setReplyTo}
+        onPin={handlePin}
+        onReact={handleReact}
+        onDelete={handleRecall}
       />
 
       {/* ── Typing indicator ── */}
@@ -382,6 +507,8 @@ export const ChatRoom: React.FC = () => {
         onSendText={handleSendText}
         onSendMedia={handleSendMedia}
         onSendEmoji={handleSendEmoji}
+        replyTo={replyTo}
+        onCancelReply={() => setReplyTo(null)}
         uploadProgress={uploadProgress}
         isSending={activeSending}
         onTypingChange={setIsMyTyping}

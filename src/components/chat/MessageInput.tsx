@@ -8,6 +8,7 @@
  *  - Emoji picker shortcut (6 common emojis).
  *  - Image / video file picker (hidden <input>).
  *  - Upload progress bar.
+ *  - Reply preview bar strip.
  *  - Typing events propagated to parent via onTypingChange.
  *  - Sends on Enter (Shift+Enter = new line) or Send button tap.
  *  - Touch-friendly hit targets (min-44px).
@@ -29,8 +30,10 @@ import {
   Smile,
   X,
   Loader2,
+  CornerDownRight,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import type { ChatMessageWithSender } from '../../types/chat';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,6 +46,10 @@ export interface MessageInputProps {
   onSendMedia: (file: File) => Promise<void>;
   /** Called when the user taps an emoji shortcut. */
   onSendEmoji: (emoji: string) => Promise<void>;
+  /** The message currently being replied to; null = no active reply. */
+  replyTo: ChatMessageWithSender | null;
+  /** Clear the active reply. */
+  onCancelReply: () => void;
   /** Upload progress (0-100). Null when idle. */
   uploadProgress: number | null;
   /** Whether a send/upload is in flight. */
@@ -71,6 +78,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onSendText,
   onSendMedia,
   onSendEmoji,
+  replyTo,
+  onCancelReply,
   uploadProgress,
   isSending,
   onTypingChange,
@@ -223,6 +232,34 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               animate={{ width: `${uploadProgress}%` }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
             />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Reply Preview Bar */}
+      <AnimatePresence>
+        {replyTo && (
+          <motion.div
+            key="reply-bar"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="flex items-center gap-2 px-4 pt-2.5 pb-0.5 bg-canvas-cool/40 border-b border-canvas-dark"
+          >
+            <CornerDownRight className="w-3.5 h-3.5 text-brand shrink-0" />
+            <div className="flex-1 bg-brand-light/35 rounded-lg px-2.5 py-1 text-xs text-brand-accent border-l-2 border-brand truncate">
+              <span className="font-semibold">{replyTo.sender?.display_name ?? 'Người dùng'}: </span>
+              <span className="opacity-80">
+                {replyTo.is_deleted ? 'Tin nhắn đã thu hồi' : (replyTo.content ?? '[Media]')}
+              </span>
+            </div>
+            <button
+              onClick={onCancelReply}
+              className="p-1 rounded-full hover:bg-canvas-cool text-text-soft hover:text-text-main transition-colors"
+              aria-label="Hủy trả lời"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </motion.div>
         )}
       </AnimatePresence>

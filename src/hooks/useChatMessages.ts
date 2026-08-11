@@ -61,9 +61,18 @@ const MESSAGE_SELECT = `
   reply_to_id,
   is_deleted,
   created_at,
+  reactions,
+  is_pinned,
   sender:profiles!fk_chat_messages_sender (
     display_name,
     avatar_emoji
+  ),
+  reply_to:chat_messages!reply_to_id (
+    id,
+    content,
+    type,
+    sender_id,
+    is_deleted
   )
 `.trim();
 
@@ -184,6 +193,48 @@ export async function softDeleteMessage(messageId: string): Promise<void> {
 
   if (error) {
     throw new Error(`[useChatMessages] softDeleteMessage failed: ${error.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// updateMessageReactions — updates reactions record for a message
+// ---------------------------------------------------------------------------
+
+/**
+ * Updates a message's reactions in the database.
+ */
+export async function updateMessageReactions(
+  messageId: string,
+  reactions: Record<string, string>,
+): Promise<void> {
+  const { error } = await supabase
+    .from('chat_messages')
+    .update({ reactions })
+    .eq('id', messageId);
+
+  if (error) {
+    throw new Error(`[useChatMessages] updateMessageReactions failed: ${error.message}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// togglePinMessage — sets is_pinned to true/false for a message
+// ---------------------------------------------------------------------------
+
+/**
+ * Pins or unpins a chat message.
+ */
+export async function togglePinMessage(
+  messageId: string,
+  isPinned: boolean,
+): Promise<void> {
+  const { error } = await supabase
+    .from('chat_messages')
+    .update({ is_pinned: isPinned })
+    .eq('id', messageId);
+
+  if (error) {
+    throw new Error(`[useChatMessages] togglePinMessage failed: ${error.message}`);
   }
 }
 
