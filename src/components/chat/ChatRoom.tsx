@@ -104,21 +104,24 @@ export const ChatRoom: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
 
   // ── Dynamic Visual Viewport Height for Mobile Keyboard ───────────────────
-  const [viewportHeight, setViewportHeight] = useState('calc(100dvh - 4rem)');
-  const [viewportTop, setViewportTop] = useState('0px');
+  const [viewportHeight, setViewportHeight] = useState('100%');
 
   useEffect(() => {
-    if (!window.visualViewport) return;
+    const isMobile = window.innerWidth < 768;
+    if (!isMobile) {
+      setViewportHeight('100%');
+      return;
+    }
+
+    if (!window.visualViewport) {
+      setViewportHeight('calc(100dvh - 4rem)');
+      return;
+    }
 
     const handleResize = () => {
       if (!window.visualViewport) return;
-      const isMobile = window.innerWidth < 768;
-      const headerOffset = isMobile ? 64 : 0;
-      
-      // Calculate height of visible area minus header
+      const headerOffset = 64; // pt-16 mobile nav bar height
       setViewportHeight(`${window.visualViewport.height - headerOffset}px`);
-      // Translate offsetTop to absolute positioning top coordinate
-      setViewportTop(`${window.visualViewport.offsetTop + headerOffset}px`);
     };
 
     window.visualViewport.addEventListener('resize', handleResize);
@@ -429,14 +432,8 @@ export const ChatRoom: React.FC = () => {
 
   return (
     <div
-      style={{
-        position: 'absolute',
-        top: viewportTop,
-        left: 0,
-        right: 0,
-        height: viewportHeight,
-      }}
-      className="flex flex-col min-h-0 bg-canvas overflow-hidden"
+      style={{ height: viewportHeight }}
+      className="flex flex-col min-h-0 bg-canvas overflow-hidden w-full relative"
     >
       {/* Floating Connection Status Badge (No header takes up vertical space) */}
       {error && (

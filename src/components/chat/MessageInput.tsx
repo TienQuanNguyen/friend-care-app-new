@@ -26,8 +26,6 @@ import React, {
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Send,
-  Paperclip,
-  Smile,
   X,
   Loader2,
   CornerDownRight,
@@ -76,8 +74,6 @@ const TYPING_STOP_DELAY_MS = 2000;
 
 export const MessageInput: React.FC<MessageInputProps> = ({
   onSendText,
-  onSendMedia,
-  onSendEmoji,
   replyTo,
   onCancelReply,
   uploadProgress,
@@ -85,11 +81,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onTypingChange,
 }) => {
   const [text, setText] = useState('');
-  const [showEmojis, setShowEmojis] = useState(false);
   const [isLocalSending, setIsLocalSending] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
 
@@ -177,40 +171,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     [handleSendText],
   );
 
-  const handleEmojiClick = useCallback(
-    async (emoji: string) => {
-      if (activeSending) return;
-      setShowEmojis(false);
 
-      try {
-        setIsLocalSending(true);
-        await onSendEmoji(emoji);
-      } catch (err) {
-        console.error('[MessageInput] onSendEmoji error:', err);
-      } finally {
-        setIsLocalSending(false);
-      }
-    },
-    [onSendEmoji, activeSending],
-  );
-
-  const handleFileChange = useCallback(
-    async (e: ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file || activeSending) return;
-      e.target.value = '';
-
-      try {
-        setIsLocalSending(true);
-        await onSendMedia(file);
-      } catch (err) {
-        console.error('[MessageInput] onSendMedia error:', err);
-      } finally {
-        setIsLocalSending(false);
-      }
-    },
-    [onSendMedia, activeSending],
-  );
 
   const canSend = text.trim().length > 0 && !activeSending;
 
@@ -267,76 +228,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Emoji picker */}
-      <AnimatePresence>
-        {showEmojis && (
-          <motion.div
-            key="emoji-palette"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            className="flex items-center gap-1 px-3 pt-2"
-          >
-            {QUICK_EMOJIS.map((emoji) => (
-              <button
-                key={emoji}
-                disabled={activeSending}
-                onClick={() => void handleEmojiClick(emoji)}
-                className="text-2xl leading-none w-10 h-10 flex items-center justify-center rounded-xl hover:bg-canvas-cool active:scale-90 transition-all touch-manipulation disabled:opacity-50"
-                aria-label={`Gửi ${emoji}`}
-              >
-                {emoji}
-              </button>
-            ))}
-            <button
-              onClick={() => setShowEmojis(false)}
-              className="ml-auto p-1 text-text-soft hover:text-text-main"
-              aria-label="Đóng emoji"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Input row */}
-      <div className="flex items-end gap-2 px-3 py-2.5">
-        {/* Emoji button */}
-        <button
-          type="button"
-          disabled={activeSending}
-          onClick={() => setShowEmojis((v) => !v)}
-          className={cn(
-            'shrink-0 w-9 h-9 flex items-center justify-center rounded-full transition-colors touch-manipulation disabled:opacity-50',
-            showEmojis
-              ? 'bg-brand-light text-brand'
-              : 'text-text-soft hover:text-brand hover:bg-brand-light/40',
-          )}
-          aria-label="Emoji"
-        >
-          <Smile className="w-5 h-5" />
-        </button>
-
-        {/* Media button */}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={activeSending}
-          className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full text-text-soft hover:text-brand hover:bg-brand-light/40 transition-colors disabled:opacity-40 touch-manipulation"
-          aria-label="Đính kèm ảnh hoặc video"
-        >
-          <Paperclip className="w-5 h-5" />
-        </button>
-
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,video/*"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-
+      <div className="flex items-end gap-2 px-3 py-2">
         {/* Text area */}
         <textarea
           ref={textareaRef}
