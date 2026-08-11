@@ -99,18 +99,6 @@ const MOOD_STYLES: Record<string, { bg: string; text: string; border: string; ic
     text: 'text-rose-700',
     border: 'border-rose-200',
     iconBg: 'bg-rose-100',
-    iconColor: 'text-rose-600'
-  }
-};
-
-const getMoodStyle = (mood: string) => {
-  return MOOD_STYLES[mood] || {
-    bg: 'bg-gray-50',
-    text: 'text-gray-700',
-    border: 'border-gray-200',
-    iconBg: 'bg-gray-100',
-    iconColor: 'text-gray-600'
-  };
   { name: 'Hạnh phúc', icon: Sparkles },
   { name: 'Buồn bã', icon: Frown },
   { name: 'Mệt mỏi', icon: Coffee },
@@ -262,6 +250,7 @@ export const MoodJournal = () => {
   };
 
   const loadEntries = async () => {
+    try {
       const data = await moodService.getEntries();
       setEntries(data);
     } finally {
