@@ -1,0 +1,223 @@
+/**
+ * MessageList.tsx
+ *
+ * Scrollable list of chat messages.
+ *
+ * Features:
+ *  - Auto-scroll to bottom on new messages
+ *  - "Load more" button at top for older pages (cursor-based)
+ *  - Date separator dividers
+ *  - Skeleton loading state
+ *  - Animates in with framer-motion via AnimatePresence
+ */
+
+import React, { useEffect, useRef, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { format, isSameDay } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { Loader2, MessageCircle } from 'lucide-react';
+import { cn } from '../../lib/utils';
+import { MessageBubble } from './MessageBubble';
+import type { ChatMessageWithSender } from '../../types/chat';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface MessageListProps {
+  messages: ChatMessageWithSender[];
+  currentUserId: string;
+  isLoading: boolean;
+  isFetchingMore: boolean;
+  hasMore: boolean;
+  onLoadMore: () => void;
+  onReply: (message: ChatMessageWithSender) => void;
+  /** Set of optimistic message IDs that are pending server confirmation. */
+  pendingIds?: Set<string>;
+}
+
+// ---------------------------------------------------------------------------
+// Date separator
+// ---------------------------------------------------------------------------
+
+const DateSeparator: React.FC<{ date: Date }> = ({ date }) => {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  let label: string;
+  if (isSameDay(date, today)) label = 'Hôm nay';
+  else if (isSameDay(date, yesterday)) label = 'Hôm qua';
+  else label = format(date, 'EEEE, dd/MM/yyyy', { locale: vi });
+
+  return (
+    <div className="flex items-center gap-3 my-3 px-2">
+      <div className="flex-1 h-px bg-canvas-dark" />
+      <span className="text-[11px] font-semibold text-text-soft uppercase tracking-wider shrink-0">
+        {label}
+      </span>
+      <div className="flex-1 h-px bg-canvas-dark" />
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Skeleton placeholder
+// ---------------------------------------------------------------------------
+
+const MessageSkeleton: React.FC = () => (
+  <div className="flex flex-col gap-3 p-4">
+    {[...Array(5)].map((_, i) => (
+      <div
+        key={i}
+        className={cn('flex items-end gap-2 animate-pulse', i % 2 === 0 ? 'flex-row' : 'flex-row-reverse')}
+      >
+        {i % 2 === 0 && <div className="w-8 h-8 rounded-full bg-canvas-dark shrink-0" />}
+        <div
+          className={cn(
+            'h-10 rounded-2xl bg-canvas-dark',
+            i % 2 === 0 ? 'w-40' : 'w-32 bg-brand-light/40',
+          )}
+        />
+      </div>
+    ))}
+  </div>
+);
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
+export const MessageList: React.FC<MessageListProps> = ({
+  messages,
+  currentUserId,
+  isLoading,
+  isFetchingMore,
+  hasMore,
+  onLoadMore,
+  onReply,
+  pendingIds,
+}) => {
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Track previous message count so we only auto-scroll for NEW messages,
+  // not when loading older ones (which would jump the viewport).
+  const prevCountRef = useRef(messages.length);
+  const userScrolledUpRef = useRef(false);
+
+  // Scroll-to-bottom: fires when a genuinely new message arrives at the bottom
+  useEffect(() => {
+    const prevCount = prevCountRef.current;
+    const newCount = messages.length;
+    prevCountRef.current = newCount;
+
+    // New messages (not a load-more page — load-more adds to the end/top of
+    // the array which is rendered first in the reversed list)
+    const isNewMessage = newCount > prevCount;
+    if (isNewMessage && !userScrolledUpRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages.length]);
+
+  // Reset "scrolled up" flag when user reaches the bottom manually
+  const handleScroll = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    // If the user is within 80px of the bottom, consider them "at bottom"
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    userScrolledUpRef.current = distanceFromBottom > 80;
+  }, []);
+
+  // Messages come in newest-first from the hook; reverse for display
+  const displayed = [...messages].reverse();
+
+  // Build date-separator insertion map
+  const withSeparators: Array<{ type: 'message'; msg: ChatMessageWithSender } | { type: 'separator'; date: Date }> = [];
+  let lastDate: Date | null = null;
+  for (const msg of displayed) {
+    const msgDate = new Date(msg.created_at);
+    if (!lastDate || !isSameDay(lastDate, msgDate)) {
+      withSeparators.push({ type: 'separator', date: msgDate });
+      lastDate = msgDate;
+    }
+    withSeparators.push({ type: 'message', msg });
+  }
+
+  return (
+    <div
+      ref={listRef}
+      onScroll={handleScroll}
+      className="flex-1 overflow-y-auto overscroll-contain px-3 py-3 space-y-1 scroll-smooth"
+      aria-label="Cuộc trò chuyện"
+    >
+      {/* Load-more trigger */}
+      {hasMore && (
+        <div className="flex justify-center py-2">
+          <button
+            onClick={onLoadMore}
+            disabled={isFetchingMore}
+            className="flex items-center gap-1.5 text-xs font-semibold text-brand hover:text-brand-accent disabled:opacity-50 transition-colors py-1.5 px-3 rounded-pill border border-brand-light hover:bg-brand-light/30"
+          >
+            {isFetchingMore ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" /> Đang tải…
+              </>
+            ) : (
+              'Tải tin nhắn cũ hơn'
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Skeleton */}
+      {isLoading && <MessageSkeleton />}
+
+      {/* Empty state */}
+      {!isLoading && displayed.length === 0 && (
+        <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-16">
+          <div className="w-14 h-14 rounded-full bg-brand-light/40 flex items-center justify-center">
+            <MessageCircle className="w-7 h-7 text-brand-light" />
+          </div>
+          <p className="text-text-soft text-sm font-medium">Chưa có tin nhắn nào.</p>
+          <p className="text-text-soft text-xs">Hãy gửi lời nhắn đầu tiên nhé 💚</p>
+        </div>
+      )}
+
+      {/* Message list */}
+      <AnimatePresence initial={false}>
+        {withSeparators.map((item, idx) => {
+          if (item.type === 'separator') {
+            return (
+              <motion.div
+                key={`sep-${item.date.toISOString()}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.2 }}
+              >
+                <DateSeparator date={item.date} />
+              </motion.div>
+            );
+          }
+
+          const { msg } = item;
+          const isOwn = msg.sender_id === currentUserId;
+          const isPending = pendingIds?.has(msg.id) ?? false;
+
+          return (
+            <MessageBubble
+              key={msg.id}
+              message={msg}
+              isOwn={isOwn}
+              isPending={isPending}
+              onReply={onReply}
+            />
+          );
+        })}
+      </AnimatePresence>
+
+      {/* Auto-scroll anchor */}
+      <div ref={bottomRef} aria-hidden="true" />
+    </div>
+  );
+};

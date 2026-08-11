@@ -7,7 +7,8 @@ import {
   Calendar, 
   Heart, 
   Image as ImageIcon, 
-  Settings 
+  Settings,
+  MessageCircleDashed
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useCareSpace } from '../../contexts/CareSpaceContext';
@@ -18,6 +19,7 @@ export const navigationItems = [
   { name: 'Địa điểm món ăn', href: '/foods', icon: Utensils },
   { name: 'Lịch sự kiện', href: '/schedules', icon: Calendar },
   { name: 'Giữ ngọn lửa nhỏ', href: '/love-notes', icon: Heart },
+  { name: 'Chat', href: '/chat', icon: MessageCircleDashed },
   { name: 'Cài đặt', href: '/settings', icon: Settings },
 ];
 

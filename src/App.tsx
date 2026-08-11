@@ -16,6 +16,7 @@ import { Settings } from './pages/Settings';
 import { UpdatePassword } from './pages/UpdatePassword';
 import { SpotifyCallback } from './pages/SpotifyCallback';
 import { AnnouncementModal } from './components/AnnouncementModal';
+import { ChatRoom } from './components/chat/ChatRoom';
 import { StreakProvider } from './contexts/StreakContext';
 
 function App() {
@@ -38,6 +39,7 @@ function App() {
                 <Route path="love-notes" element={<LoveNotes />} />
                 <Route path="memories" element={<Memories />} />
                 <Route path="settings" element={<Settings />} />
+                <Route path="chat" element={<ChatRoom />} />
               </Route>
             </Routes>
             <AnnouncementModal />
