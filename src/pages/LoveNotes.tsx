@@ -7,7 +7,7 @@ import { loveNoteService } from '../services/loveNoteService';
 import { LoveNote } from '../types';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { Heart, Flame, Sparkles, CheckCircle2, Clock3 } from 'lucide-react';
+import { Heart, Flame, Sparkles, CheckCircle2, Clock3, MoreHorizontal } from 'lucide-react';
 import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 import { useStreak } from '../hooks/useStreak';
@@ -17,6 +17,7 @@ export const LoveNotes = () => {
   const { careSpace, profiles } = useCareSpace();
   const { status: streakStatus, loading: streakLoading, refresh: refreshStreak } = useStreak();
   const [notes, setNotes] = useState<LoveNote[]>([]);
+  const [showAllNotes, setShowAllNotes] = useState(false);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -214,32 +215,54 @@ export const LoveNotes = () => {
               <Skeleton className="h-32" />
               <Skeleton className="h-32" />
             </>
-          ) : notes.map((note) => {
-            const profile = getProfile(note.created_by);
-            return (
-              <Card key={note.id} className="relative overflow-hidden group border-none shadow-nav hover:shadow-frap-ambient transition-all bg-white p-5 rounded-2xl">
-                <div className="absolute top-4 right-4 opacity-[0.03] group-hover:opacity-5 transition-opacity">
-                  <Heart className="w-20 h-20" />
-                </div>
-
-                <div className="flex items-center gap-3 mb-4 relative z-10">
-                  <div className="w-10 h-10 bg-canvas-cool rounded-full flex items-center justify-center text-xl shadow-sm border border-white">
-                    {profile.avatar_emoji}
-                  </div>
-                  <div>
-                    <div className="font-bold text-text-main text-sm">{profile.display_name}</div>
-                    <div className="text-[11px] font-semibold text-text-soft">
-                      {format(new Date(note.created_at), 'HH:mm • dd/MM/yyyy', { locale: vi })}
+          ) : (
+            <>
+              {(showAllNotes ? notes : notes.slice(0, 6)).map((note) => {
+                const profile = getProfile(note.created_by);
+                return (
+                  <Card key={note.id} className="relative overflow-hidden group border-none shadow-nav hover:shadow-frap-ambient transition-all bg-white p-5 rounded-2xl">
+                    <div className="absolute top-4 right-4 opacity-[0.03] group-hover:opacity-5 transition-opacity">
+                      <Heart className="w-20 h-20" />
                     </div>
-                  </div>
-                </div>
 
-                <p className="text-[15px] text-text-main relative z-10 leading-relaxed pl-13">
-                  {note.message}
-                </p>
-              </Card>
-            );
-          })}
+                    <div className="flex items-center gap-3 mb-4 relative z-10">
+                      <div className="w-10 h-10 bg-canvas-cool rounded-full flex items-center justify-center text-xl shadow-sm border border-white">
+                        {profile.avatar_emoji}
+                      </div>
+                      <div>
+                        <div className="font-bold text-text-main text-sm">{profile.display_name}</div>
+                        <div className="text-[11px] font-semibold text-text-soft">
+                          {format(new Date(note.created_at), 'HH:mm • dd/MM/yyyy', { locale: vi })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="text-[15px] text-text-main relative z-10 leading-relaxed pl-13">
+                      {note.message}
+                    </p>
+                  </Card>
+                );
+              })}
+
+              {notes.length > 6 && (
+                <div className="flex justify-center pt-2">
+                  <button
+                    onClick={() => setShowAllNotes(!showAllNotes)}
+                    className="flex items-center gap-2 px-5 py-2 bg-white border border-gray-200 shadow-sm hover:shadow-md rounded-full text-xs font-bold text-brand hover:text-brand-accent transition-all"
+                  >
+                    {showAllNotes ? (
+                      <>Thu gọn</>
+                    ) : (
+                      <>
+                        <span>Xem thêm {notes.length - 6} lời nhắn...</span>
+                        <MoreHorizontal className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
           {!isLoading && notes.length === 0 && (
             <div className="text-center py-12 px-4 border border-dashed border-gray-200 rounded-2xl bg-white/50">
               <Heart className="w-8 h-8 text-brand-light mx-auto mb-3" />
