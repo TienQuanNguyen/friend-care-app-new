@@ -186,7 +186,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
       {/* Message list */}
       <AnimatePresence initial={false}>
-        {withSeparators.map((item, idx) => {
+        {withSeparators.map((item) => {
           if (item.type === 'separator') {
             return (
               <motion.div
