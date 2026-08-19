@@ -12,6 +12,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 import { MiniConfetti } from '../components/ui/MiniConfetti';
 import { RandomFoodPicker } from '../components/ui/RandomFoodPicker';
+import { useActivityLog } from '../hooks/useActivityLog';
 
 const DISTRICTS = ["Quận 1", "Quận 3", "Quận 4", "Quận 5", "Quận 7", "Quận 10", "Bình Thạnh", "Phú Nhuận", "Tân Bình", "Gò Vấp", "Thủ Đức", "Khác"];
 const CATEGORIES = ["Lẩu", "Nướng", "Trà sữa", "Cafe", "Bánh ngọt", "Ăn vặt", "Món Việt", "Món Hàn", "Món Nhật", "Món Âu", "Khác"];
@@ -19,6 +20,7 @@ const CATEGORIES = ["Lẩu", "Nướng", "Trà sữa", "Cafe", "Bánh ngọt", "
 export const FoodPlaces = () => {
   const { user } = useAuth();
   const { careSpace } = useCareSpace();
+  const { log } = useActivityLog();
   const [places, setPlaces] = useState<FoodPlace[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<FoodPlace | null>(null);
@@ -118,6 +120,7 @@ export const FoodPlaces = () => {
           note
         });
         if (!result) throw new Error("Thêm thất bại. Vui lòng thử lại.");
+        log('food_add', foodName);
       }
 
       resetForm();

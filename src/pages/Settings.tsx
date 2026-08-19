@@ -3,11 +3,13 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { useCareSpace } from '../contexts/CareSpaceContext';
-import { LogOut, Copy, Users, Smile, Check, UserCircle, Megaphone, Power, PowerOff } from 'lucide-react';
+import { LogOut, Copy, Users, Smile, Check, UserCircle, Megaphone, Power, PowerOff, History, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Input } from '../components/ui/Input';
 import { isAdminEmail } from '../types';
 import { announcementService } from '../services/announcementService';
+import { activityLogService, type ActivityLog } from '../services/activityLogService';
+import { format } from 'date-fns';
 
 const AVATAR_OPTIONS = [
   { icon: '📷', label: 'Camera' },
@@ -53,6 +55,25 @@ export const Settings = () => {
   const [announcementStatus, setAnnouncementStatus] = React.useState('');
   const [currentAnnouncement, setCurrentAnnouncement] = React.useState<{ id: string; title?: string | null; message: string } | null>(null);
 
+  // Activity Log state
+  const [logs, setLogs] = React.useState<ActivityLog[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = React.useState(false);
+  const [logFilterUser, setLogFilterUser] = React.useState<string>('all');
+  const [logFilterEvent, setLogFilterEvent] = React.useState<string>('all');
+
+  const loadLogs = React.useCallback(async () => {
+    if (!isAdmin || !careSpace?.id) return;
+    setIsLoadingLogs(true);
+    try {
+      const fetchedLogs = await activityLogService.getLogs(careSpace.id);
+      setLogs(fetchedLogs);
+    } catch (err) {
+      console.error('Failed to load activity logs:', err);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  }, [isAdmin, careSpace?.id]);
+
   // Load current active announcement if admin
   React.useEffect(() => {
     if (!isAdmin) return;
@@ -63,7 +84,11 @@ export const Settings = () => {
         setAnnouncementMessage(a.message);
       }
     }).catch(() => {});
-  }, [isAdmin]);
+    
+    if (careSpace?.id) {
+      loadLogs();
+    }
+  }, [isAdmin, careSpace?.id, loadLogs]);
 
   const handleAvatarChange = (icon: string) => {
     setSelectedAvatar(icon);
@@ -307,6 +332,206 @@ export const Settings = () => {
               )}
             </div>
           </div>
+        </Card>
+      )}
+
+      {/* === ADMIN ACTIVITY LOG SECTION === */}
+      {isAdmin && (
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-brand flex items-center gap-2">
+              <History className="w-5 h-5" />
+              Nhật ký hoạt động của đối phương
+            </h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={loadLogs}
+              disabled={isLoadingLogs}
+              className="p-2 hover:bg-canvas-cool rounded-full text-text-soft"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoadingLogs ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+          <p className="text-sm text-text-soft mb-6">
+            Ghi nhận thời gian đăng nhập và các tương tác của người còn lại trên hệ thống.
+          </p>
+
+          {/* Filters */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <div>
+              <label className="block text-xs font-bold text-text-soft mb-1.5 uppercase tracking-wider">Lọc theo thành viên</label>
+              <select
+                value={logFilterUser}
+                onChange={(e) => setLogFilterUser(e.target.value)}
+                className="w-full bg-canvas-cool border border-canvas-ceramic rounded-xl px-3 py-2 text-sm text-text-main outline-none focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent transition-all cursor-pointer"
+              >
+                <option value="all">Tất cả thành viên</option>
+                {profiles.map(p => (
+                  <option key={p.id} value={p.user_id}>
+                    {p.avatar_emoji} {p.display_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-text-soft mb-1.5 uppercase tracking-wider">Lọc theo hành động</label>
+              <select
+                value={logFilterEvent}
+                onChange={(e) => setLogFilterEvent(e.target.value)}
+                className="w-full bg-canvas-cool border border-canvas-ceramic rounded-xl px-3 py-2 text-sm text-text-main outline-none focus:ring-2 focus:ring-brand-accent/30 focus:border-brand-accent transition-all cursor-pointer"
+              >
+                <option value="all">Tất cả hành động</option>
+                <option value="login">Đăng nhập</option>
+                <option value="page_visit">Xem trang</option>
+                <option value="mood_entry">Ghi cảm xúc</option>
+                <option value="love_note">Gửi lời nhắn</option>
+                <option value="memory_upload">Tải kỷ niệm</option>
+                <option value="food_add">Thêm món ăn</option>
+                <option value="schedule_add">Thêm lịch trình</option>
+                <option value="chat_message">Nhắn tin</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Log Table / List */}
+          {isLoadingLogs ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand"></div>
+            </div>
+          ) : logs.length === 0 ? (
+            <div className="text-center py-12 border border-dashed border-canvas-ceramic rounded-xl">
+              <p className="text-sm text-text-soft">Chưa có bản ghi hoạt động nào.</p>
+            </div>
+          ) : (
+            <div className="overflow-hidden border border-canvas-ceramic rounded-xl max-h-[400px] overflow-y-auto">
+              {/* Desktop table view */}
+              <table className="hidden md:table w-full text-left border-collapse">
+                <thead className="bg-canvas-cool border-b border-canvas-ceramic sticky top-0 z-10">
+                  <tr className="text-xs font-bold text-text-soft uppercase tracking-wider">
+                    <th className="px-4 py-3 font-semibold">Thời gian</th>
+                    <th className="px-4 py-3 font-semibold">Người dùng</th>
+                    <th className="px-4 py-3 font-semibold">Hành động</th>
+                    <th className="px-4 py-3 font-semibold">Chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-canvas-ceramic text-sm">
+                  {logs
+                    .filter(log => {
+                      const matchUser = logFilterUser === 'all' || log.user_id === logFilterUser;
+                      const matchEvent = logFilterEvent === 'all' || log.event_type === logFilterEvent;
+                      return matchUser && matchEvent;
+                    })
+                    .map(log => {
+                      const p = profiles.find(prof => prof.user_id === log.user_id) || { display_name: 'Khách', avatar_emoji: '👤' };
+                      const formatEventType = (type: string) => {
+                        switch (type) {
+                          case 'login': return 'Đăng nhập';
+                          case 'page_visit': return 'Xem trang';
+                          case 'mood_entry': return 'Nhật ký cảm xúc';
+                          case 'love_note': return 'Gửi lời nhắn';
+                          case 'memory_upload': return 'Tải ảnh kỷ niệm';
+                          case 'food_add': return 'Thêm món ăn';
+                          case 'schedule_add': return 'Thêm lịch hẹn';
+                          case 'chat_message': return 'Nhắn tin';
+                          default: return type;
+                        }
+                      };
+                      const getEventBadgeClass = (type: string) => {
+                        switch (type) {
+                          case 'login': return 'bg-blue-50 text-blue-700 border-blue-200';
+                          case 'page_visit': return 'bg-gray-100 text-gray-700 border-gray-200';
+                          case 'mood_entry': return 'bg-pink-50 text-pink-700 border-pink-200';
+                          case 'love_note': return 'bg-red-50 text-red-700 border-red-200';
+                          case 'memory_upload': return 'bg-purple-50 text-purple-700 border-purple-200';
+                          case 'food_add': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+                          case 'schedule_add': return 'bg-teal-50 text-teal-700 border-teal-200';
+                          case 'chat_message': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                          default: return 'bg-gray-50 text-gray-700 border-gray-200';
+                        }
+                      };
+                      return (
+                        <tr key={log.id} className="hover:bg-canvas-cool/30">
+                          <td className="px-4 py-3 text-text-soft whitespace-nowrap">
+                            {format(new Date(log.created_at), 'dd/MM HH:mm:ss')}
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-text-main whitespace-nowrap">
+                            <span className="mr-1">{p.avatar_emoji}</span> {p.display_name}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`px-2 py-0.5 text-xs font-bold rounded-full border ${getEventBadgeClass(log.event_type)}`}>
+                              {formatEventType(log.event_type)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-text-soft max-w-[200px] truncate">
+                            {log.event_label || '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+
+              {/* Mobile list view */}
+              <div className="md:hidden divide-y divide-canvas-ceramic">
+                {logs
+                  .filter(log => {
+                    const matchUser = logFilterUser === 'all' || log.user_id === logFilterUser;
+                    const matchEvent = logFilterEvent === 'all' || log.event_type === logFilterEvent;
+                    return matchUser && matchEvent;
+                  })
+                  .map(log => {
+                    const p = profiles.find(prof => prof.user_id === log.user_id) || { display_name: 'Khách', avatar_emoji: '👤' };
+                    const formatEventType = (type: string) => {
+                      switch (type) {
+                        case 'login': return 'Đăng nhập';
+                        case 'page_visit': return 'Xem trang';
+                        case 'mood_entry': return 'Nhật ký cảm xúc';
+                        case 'love_note': return 'Gửi lời nhắn';
+                        case 'memory_upload': return 'Tải ảnh kỷ niệm';
+                        case 'food_add': return 'Thêm món ăn';
+                        case 'schedule_add': return 'Thêm lịch hẹn';
+                        case 'chat_message': return 'Nhắn tin';
+                        default: return type;
+                      }
+                    };
+                    const getEventBadgeClass = (type: string) => {
+                      switch (type) {
+                        case 'login': return 'bg-blue-50 text-blue-700 border-blue-200';
+                        case 'page_visit': return 'bg-gray-100 text-gray-700 border-gray-200';
+                        case 'mood_entry': return 'bg-pink-50 text-pink-700 border-pink-200';
+                        case 'love_note': return 'bg-red-50 text-red-700 border-red-200';
+                        case 'memory_upload': return 'bg-purple-50 text-purple-700 border-purple-200';
+                        case 'food_add': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
+                        case 'schedule_add': return 'bg-teal-50 text-teal-700 border-teal-200';
+                        case 'chat_message': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                        default: return 'bg-gray-50 text-gray-700 border-gray-200';
+                      }
+                    };
+                    return (
+                      <div key={log.id} className="p-3 text-xs space-y-1 bg-white hover:bg-canvas-cool/20">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-text-main">
+                            <span className="mr-1">{p.avatar_emoji}</span> {p.display_name}
+                          </span>
+                          <span className="text-[10px] text-text-soft">
+                            {format(new Date(log.created_at), 'dd/MM HH:mm:ss')}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full border ${getEventBadgeClass(log.event_type)}`}>
+                            {formatEventType(log.event_type)}
+                          </span>
+                          <span className="text-text-soft truncate max-w-[150px]">
+                            {log.event_label || '-'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
         </Card>
       )}
 

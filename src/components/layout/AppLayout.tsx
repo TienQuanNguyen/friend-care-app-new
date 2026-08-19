@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCareSpace } from '../../contexts/CareSpaceContext';
 import { cn } from '../../lib/utils';
+import { useActivityLog } from '../../hooks/useActivityLog';
 
 /** Routes that should fill the viewport without the default padded container. */
 const FULL_HEIGHT_ROUTES = ['/chat'];
@@ -13,6 +14,25 @@ export const AppLayout = () => {
   const { user, loading: authLoading } = useAuth();
   const { careSpace, loading: spaceLoading } = useCareSpace();
   const location = useLocation();
+  const { log } = useActivityLog();
+
+  const PAGE_LABELS: Record<string, string> = {
+    '/': 'Dashboard',
+    '/mood': 'Nhật ký cảm xúc',
+    '/foods': 'Địa điểm ăn uống',
+    '/schedules': 'Lịch trình',
+    '/love-notes': 'Giữ ngọn lửa nhỏ',
+    '/memories': 'Album kỷ niệm',
+    '/settings': 'Cài đặt',
+    '/chat': 'Chat',
+  };
+
+  useEffect(() => {
+    if (!user || !careSpace) return;
+    const label = PAGE_LABELS[location.pathname] ?? location.pathname;
+    log('page_visit', label);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   if (authLoading || spaceLoading) {
     return (

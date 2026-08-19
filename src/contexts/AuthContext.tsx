@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AuthUser } from '../types';
 import { supabase } from '../lib/supabase';
+import { activityLogService } from '../services/activityLogService';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -50,12 +51,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password?: string) => {
     if (!password) password = 'friendcare_default_password_123!'; // fallback if needed
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     
     if (error) throw error;
+
+    // Log login event (non-blocking, skip admin)
+    if (data?.user && email !== 'tienquan0807@gmail.com') {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('care_space_id')
+        .eq('user_id', data.user.id)
+        .maybeSingle();
+      void activityLogService.logEvent(
+        profile?.care_space_id ?? null,
+        data.user.id,
+        'login',
+        email
+      );
+    }
   };
 
   const register = async (email: string, password?: string) => {

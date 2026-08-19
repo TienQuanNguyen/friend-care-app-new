@@ -11,11 +11,13 @@ import { Heart, Flame, Sparkles, CheckCircle2, Clock3, MoreHorizontal } from 'lu
 import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 import { useStreak } from '../hooks/useStreak';
+import { useActivityLog } from '../hooks/useActivityLog';
 
 export const LoveNotes = () => {
   const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
   const { status: streakStatus, loading: streakLoading, refresh: refreshStreak } = useStreak();
+  const { log } = useActivityLog();
   const [notes, setNotes] = useState<LoveNote[]>([]);
   const [showAllNotes, setShowAllNotes] = useState(false);
   const [message, setMessage] = useState('');
@@ -59,6 +61,7 @@ export const LoveNotes = () => {
       setTimeout(() => setShowSuccess(false), 2000);
       loadNotes();
       await refreshStreak();
+      log('love_note');
     } finally {
       setIsSubmitting(false);
     }

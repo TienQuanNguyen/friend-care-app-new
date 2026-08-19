@@ -31,6 +31,7 @@ import {
 import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 import { useStreak } from '../hooks/useStreak';
+import { useActivityLog } from '../hooks/useActivityLog';
 
 const REACTION_EMOJIS = ['❤️', '👍', '🥰', '😆', '😮', '🥺', '😏', '😢', '😡'];
 
@@ -121,6 +122,7 @@ export const MoodJournal = () => {
   const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
   const { refresh: refreshStreak } = useStreak();
+  const { log } = useActivityLog();
   const [entries, setEntries] = useState<MoodEntry[]>([]);
   
   const [isFormOpen, setIsFormOpen] = useState(true);
@@ -396,6 +398,7 @@ export const MoodJournal = () => {
 
       void refreshStreak();
       void generateAndAttachAdvice(result.id, adviceInput);
+      log('mood_entry', submittedMood);
     } catch (err: unknown) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Đã xảy ra lỗi khi lưu nhật ký.");

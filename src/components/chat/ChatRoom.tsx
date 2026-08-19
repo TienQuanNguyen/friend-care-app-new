@@ -25,6 +25,7 @@ import { MessageCircleDashed, WifiOff, Pin, X } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCareSpace } from '../../contexts/CareSpaceContext';
+import { useActivityLog } from '../../hooks/useActivityLog';
 import {
   useChatMessages,
   sendMessage,
@@ -90,6 +91,7 @@ function makePendingMessage(
 export const ChatRoom: React.FC = () => {
   const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
+  const { log } = useActivityLog();
 
   const careSpaceId = careSpace?.id ?? null;
 
@@ -308,6 +310,7 @@ export const ChatRoom: React.FC = () => {
           type: 'TEXT',
           replyToId: currentReply?.id,
         });
+        log('chat_message');
       } catch (err) {
         console.error('[ChatRoom] sendMessage failed:', err);
       } finally {

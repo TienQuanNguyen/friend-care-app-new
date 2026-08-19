@@ -25,6 +25,7 @@ import { CalendarHeart, ChevronLeft, ChevronRight, LayoutGrid, List, TableProper
 import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 import { MiniConfetti } from '../components/ui/MiniConfetti';
+import { useActivityLog } from '../hooks/useActivityLog';
 
 const CATEGORIES: { value: ScheduleCategory, label: string }[] = [
   { value: 'work', label: 'Công việc' },
@@ -63,6 +64,7 @@ type ViewMode = 'Tháng' | 'Bảng' | 'Danh sách';
 export const Schedules = () => {
   const { user } = useAuth();
   const { careSpace } = useCareSpace();
+  const { log } = useActivityLog();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -155,6 +157,7 @@ export const Schedules = () => {
           color_type: category === 'couple' ? 'pink' : 'gray',
         });
         if (!result) throw new Error("Tạo lịch thất bại. Vui lòng thử lại.");
+        log('schedule_add', title);
       }
 
       resetForm();

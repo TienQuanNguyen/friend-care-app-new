@@ -11,10 +11,12 @@ import { vi } from 'date-fns/locale';
 import { Image as ImageIcon } from 'lucide-react';
 import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
+import { useActivityLog } from '../hooks/useActivityLog';
 
 export const Memories = () => {
   const { user } = useAuth();
   const { careSpace } = useCareSpace();
+  const { log } = useActivityLog();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +60,7 @@ export const Memories = () => {
       setMemoryDate('');
       setIsAdding(false);
       setShowSuccess(true);
+      log('memory_upload', title);
       setTimeout(() => setShowSuccess(false), 2000);
       loadMemories();
     } finally {
