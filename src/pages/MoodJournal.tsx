@@ -798,6 +798,8 @@ export const MoodJournal = () => {
                 const Icon = MOODS_WITH_ICONS.find(m => m.name === entry.mood)?.icon || Smile;
                 const isCurrentUser = entry.created_by === user?.id;
                 const writerProfile = getProfile(entry.created_by);
+                const isPinnedExpanded = expandedEntries.has(entry.id);
+                const isLongPinnedText = (entry.note?.length || 0) > 80 || (entry.gratitude?.length || 0) > 80;
                 return (
                   <Card key={`pinned-${entry.id}`} className="bg-gradient-to-br from-amber-50/60 to-white border border-amber-200/60 shadow-sm rounded-2xl p-4 relative">
                     <div className="flex items-center justify-between mb-3">
@@ -832,13 +834,27 @@ export const MoodJournal = () => {
                       </div>
                     </div>
                     {entry.note && (
-                      <p className="text-[13px] text-text-main leading-relaxed line-clamp-2">{entry.note}</p>
+                      <p className={`text-[13px] text-text-main leading-relaxed ${isPinnedExpanded ? '' : 'line-clamp-2'}`}>{entry.note}</p>
                     )}
                     {entry.gratitude && (
-                      <p className="text-[13px] text-brand italic leading-relaxed line-clamp-1 mt-1 flex items-center gap-1">
+                      <p className={`text-[13px] text-brand italic leading-relaxed mt-1 flex items-center gap-1 ${isPinnedExpanded ? '' : 'line-clamp-1'}`}>
                         <Heart className="w-3 h-3 text-brand fill-brand-light inline shrink-0" />
                         {entry.gratitude}
                       </p>
+                    )}
+                    {entry.ai_advice && isPinnedExpanded && (
+                      <div className="mt-2 text-[12px] text-text-soft italic leading-relaxed border-t border-amber-200/40 pt-2">
+                        "{entry.ai_advice}"
+                      </div>
+                    )}
+                    {isLongPinnedText && (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(entry.id)}
+                        className="mt-2 text-xs font-bold text-brand-accent hover:underline focus:outline-none"
+                      >
+                        {isPinnedExpanded ? 'Thu gọn' : 'Xem thêm'}
+                      </button>
                     )}
                   </Card>
                 );
