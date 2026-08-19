@@ -22,7 +22,11 @@ import {
   LayoutGrid,
   Trash2,
   RefreshCw,
-  MoreHorizontal
+  MoreHorizontal,
+  Search,
+  Pin,
+  PinOff,
+  X
 } from 'lucide-react';
 import { Skeleton } from '../components/ui/Skeleton';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
@@ -139,6 +143,7 @@ export const MoodJournal = () => {
   const [retryingEntryId, setRetryingEntryId] = useState<string | null>(null);
   const [generatingAdviceEntryIds, setGeneratingAdviceEntryIds] = useState<Set<string>>(new Set());
   const [activeReactionPickerId, setActiveReactionPickerId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Derive unique available months for filtering (Format YYYY-MM)
   const availableMonths = useMemo(() => {
@@ -155,6 +160,13 @@ export const MoodJournal = () => {
     return Array.from(monthsSet).sort((a, b) => b.localeCompare(a));
   }, [entries]);
 
+  // Pinned entries (always sorted newest first)
+  const pinnedEntries = useMemo(() => {
+    return entries
+      .filter(e => e.is_pinned)
+      .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  }, [entries]);
+
   // Filter & Sort entries
   const processedEntries = useMemo(() => {
     let result = [...entries];
@@ -164,6 +176,18 @@ export const MoodJournal = () => {
       result = result.filter((e) => {
         const dateStr = e.entry_date || (e.created_at ? e.created_at.slice(0, 10) : '');
         return dateStr.startsWith(monthFilter);
+      });
+    }
+
+    // Filter by search keyword
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter((e) => {
+        const noteMatch = e.note?.toLowerCase().includes(q);
+        const gratitudeMatch = e.gratitude?.toLowerCase().includes(q);
+        const moodMatch = e.mood?.toLowerCase().includes(q);
+        const adviceMatch = e.ai_advice?.toLowerCase().includes(q);
+        return noteMatch || gratitudeMatch || moodMatch || adviceMatch;
       });
     }
 
@@ -177,7 +201,7 @@ export const MoodJournal = () => {
     });
 
     return result;
-  }, [entries, monthFilter, sortOrder]);
+  }, [entries, monthFilter, sortOrder, searchQuery]);
 
   const displayedEntries = useMemo(() => {
     return showAllEntries ? processedEntries : processedEntries.slice(0, 6);
@@ -466,6 +490,21 @@ export const MoodJournal = () => {
     }
   };
 
+  const handleTogglePin = async (entryId: string) => {
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
+    const newPinState = !entry.is_pinned;
+    try {
+      // Optimistic update
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, is_pinned: newPinState } : e));
+      await moodService.togglePin(entryId, newPinState);
+    } catch (err) {
+      console.error('Failed to toggle pin:', err);
+      // Revert on failure
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, is_pinned: !newPinState } : e));
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto">
       {/* Header */}
@@ -722,6 +761,92 @@ export const MoodJournal = () => {
           </div>
         </div>
 
+        {/* Search Bar */}
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+            <Search className="w-4 h-4 text-text-soft" />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm kiếm theo cảm nhận, biết ơn, tâm trạng..."
+            className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-10 py-2.5 text-sm text-text-main placeholder-text-soft outline-none focus:border-brand focus:ring-1 focus:ring-brand/30 transition-all"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-text-soft hover:text-text-main transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Pinned Entries Section */}
+        {pinnedEntries.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Pin className="w-4 h-4 text-brand-accent" />
+              <h4 className="text-sm font-bold text-brand-accent uppercase tracking-wider">Cảm xúc đã ghim</h4>
+              <span className="text-[11px] font-semibold px-2 py-0.5 bg-brand-light/50 rounded-full text-brand-house">{pinnedEntries.length}</span>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              {pinnedEntries.map(entry => {
+                const style = getMoodStyle(entry.mood);
+                const Icon = MOODS_WITH_ICONS.find(m => m.name === entry.mood)?.icon || Smile;
+                const isCurrentUser = entry.created_by === user?.id;
+                const writerProfile = getProfile(entry.created_by);
+                return (
+                  <Card key={`pinned-${entry.id}`} className="bg-gradient-to-br from-amber-50/60 to-white border border-amber-200/60 shadow-sm rounded-2xl p-4 relative">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-pill text-[10px] font-bold uppercase ${
+                          isCurrentUser
+                            ? 'bg-brand text-white'
+                            : 'bg-brand-light text-brand-house'
+                        }`}>
+                          {isCurrentUser ? 'Bạn' : (writerProfile?.display_name || 'Nửa kia')}
+                        </span>
+                        <div className={`flex items-center gap-1.5 ${style.text}`}>
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center ${style.iconBg} ${style.iconColor}`}>
+                            <Icon className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-sm font-bold">{entry.mood}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-semibold text-text-soft flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatEntryDateTime(entry)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePin(entry.id)}
+                          className="text-amber-500 hover:text-amber-600 transition-colors p-0.5"
+                          title="Bỏ ghim"
+                        >
+                          <PinOff className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    {entry.note && (
+                      <p className="text-[13px] text-text-main leading-relaxed line-clamp-2">{entry.note}</p>
+                    )}
+                    {entry.gratitude && (
+                      <p className="text-[13px] text-brand italic leading-relaxed line-clamp-1 mt-1 flex items-center gap-1">
+                        <Heart className="w-3 h-3 text-brand fill-brand-light inline shrink-0" />
+                        {entry.gratitude}
+                      </p>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="grid md:grid-cols-2 gap-6">
             <Skeleton className="h-[280px]" />
@@ -761,6 +886,18 @@ export const MoodJournal = () => {
                               <Clock className="w-3.5 h-3.5 text-text-soft" />
                               {formatEntryDateTime(entry)}
                             </span>
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePin(entry.id)}
+                              className={`transition-colors p-1 ${
+                                entry.is_pinned
+                                  ? 'text-amber-500 hover:text-amber-600'
+                                  : 'text-gray-300 hover:text-amber-400'
+                              }`}
+                              title={entry.is_pinned ? 'Bỏ ghim' : 'Ghim lại'}
+                            >
+                              {entry.is_pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+                            </button>
                             {user?.email === 'tienquan0807@gmail.com' && (
                               <button 
                                 onClick={() => handleDeleteEntry(entry.id)}

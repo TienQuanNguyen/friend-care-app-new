@@ -63,5 +63,17 @@ export const moodService = {
       console.error('Error updating mood entry reactions:', error);
       throw error;
     }
+  },
+
+  async togglePin(id: string, is_pinned: boolean): Promise<void> {
+    const { error } = await supabase
+      .from('mood_entries')
+      .update({ is_pinned })
+      .eq('id', id);
+      
+    if (error) {
+      console.error('Error toggling pin on mood entry:', error);
+      throw error;
+    }
   }
 };
