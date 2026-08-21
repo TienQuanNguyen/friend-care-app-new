@@ -19,7 +19,7 @@ export const navigationItems = [
   { name: 'Địa điểm món ăn', href: '/foods', icon: Utensils },
   { name: 'Lịch sự kiện', href: '/schedules', icon: Calendar },
   { name: 'Giữ ngọn lửa nhỏ', href: '/love-notes', icon: Heart },
-  // { name: 'Chat', href: '/chat', icon: MessageCircleDashed },
+  { name: 'Chat', href: '/chat', icon: MessageCircleDashed },
   { name: 'Cài đặt', href: '/settings', icon: Settings },
 ];
 
