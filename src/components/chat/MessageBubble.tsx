@@ -145,9 +145,13 @@ const ReplyPreview: React.FC<{
 
   if (!replyInfo) return null;
 
-  const headerLabel = isOwn
-    ? `Bạn đã trả lời ${replyInfo.senderName ?? 'tin nhắn'}`
-    : `${senderName} đã trả lời ${replyInfo.senderName ?? 'tin nhắn'}`;
+  const headerLabel = replyInfo.isDeleted
+    ? isOwn
+      ? 'Bạn đã trả lời một tin nhắn đã bị xóa'
+      : `${senderName} đã trả lời một tin nhắn đã bị xóa`
+    : isOwn
+    ? `Bạn đã trả lời "${replyInfo.text}"`
+    : `${senderName} đã trả lời "${replyInfo.text}"`;
 
   return (
     <div className={cn('flex flex-col mb-1 max-w-full', isOwn ? 'items-end' : 'items-start')}>
