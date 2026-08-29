@@ -31,9 +31,11 @@ import {
   CornerDownRight,
   Image as ImageIcon,
   Smile,
+  Film,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { ChatMessageWithSender } from '../../types/chat';
+import { renderReplyContent } from './MessageBubble';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -214,6 +216,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
 
 
+  const replyDraftInfo = React.useMemo(() => {
+    if (!replyTo) return null;
+    return renderReplyContent(replyTo);
+  }, [replyTo]);
+
   const canSend = text.trim().length > 0 && !activeSending;
 
   return (
@@ -242,24 +249,44 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       {/* Reply Preview Bar */}
       <AnimatePresence>
-        {replyTo && (
+        {replyTo && replyDraftInfo && (
           <motion.div
             key="reply-bar"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="flex items-center gap-2 px-4 pt-2.5 pb-0.5 bg-canvas-cool/40 border-b border-canvas-dark"
+            className="flex items-center gap-2.5 px-4 py-2 bg-canvas-cool/70 border-b border-canvas-dark text-xs"
           >
-            <CornerDownRight className="w-3.5 h-3.5 text-brand shrink-0" />
-            <div className="flex-1 bg-brand-light/35 rounded-lg px-2.5 py-1 text-xs text-brand-accent border-l-2 border-brand truncate">
-              <span className="font-semibold">{replyTo.sender?.display_name ?? 'Người dùng'}: </span>
-              <span className="opacity-80">
-                {replyTo.is_deleted ? 'Tin nhắn đã thu hồi' : (replyTo.content ?? '[Media]')}
-              </span>
+            <div className="w-0.5 h-7 bg-brand rounded-full shrink-0" />
+            
+            {/* Thumbnail if replying to image */}
+            {replyDraftInfo.mediaUrl && replyDraftInfo.mediaType === 'IMAGE' && !replyDraftInfo.isDeleted && (
+              <img
+                src={replyDraftInfo.mediaUrl}
+                alt="thumbnail"
+                className="w-7 h-7 rounded object-cover shrink-0 border border-black/10"
+              />
+            )}
+            {/* Video icon if replying to video */}
+            {replyDraftInfo.mediaType === 'VIDEO' && !replyDraftInfo.isDeleted && (
+              <div className="w-7 h-7 rounded bg-brand/10 flex items-center justify-center shrink-0">
+                <Film className="w-3.5 h-3.5 text-brand" />
+              </div>
+            )}
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1 font-bold text-brand text-[11px] leading-tight">
+                <CornerDownRight className="w-3 h-3 text-brand" />
+                <span>Đang trả lời {replyDraftInfo.senderName ? replyDraftInfo.senderName : ''}</span>
+              </div>
+              <div className="text-text-soft text-[11.5px] truncate leading-tight mt-0.5">
+                {replyDraftInfo.text}
+              </div>
             </div>
+
             <button
               onClick={onCancelReply}
-              className="p-1 rounded-full hover:bg-canvas-cool text-text-soft hover:text-text-main transition-colors"
+              className="p-1 rounded-full hover:bg-canvas-dark/40 text-text-soft hover:text-text-main transition-colors"
               aria-label="Hủy trả lời"
             >
               <X className="w-3.5 h-3.5" />

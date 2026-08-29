@@ -73,7 +73,11 @@ const MESSAGE_SELECT = `
     content,
     type,
     sender_id,
-    is_deleted
+    is_deleted,
+    sender:profiles!fk_chat_messages_sender (
+      display_name,
+      avatar_emoji
+    )
   )
 `.trim();
 
@@ -313,6 +317,22 @@ export function useChatMessages(careSpaceId: string | null): UseChatMessagesRetu
       setMessages((prev) => {
         // Guard against duplicate events (Supabase may re-deliver on reconnect).
         if (prev.some((m) => m.id === incoming.id)) return prev;
+
+        // Try immediate local resolution of reply_to if reply_to_id exists
+        if (incoming.reply_to_id) {
+          const parent = prev.find((m) => m.id === incoming.reply_to_id);
+          if (parent) {
+            incoming.reply_to = {
+              id: parent.id,
+              content: parent.content,
+              type: parent.type,
+              sender_id: parent.sender_id,
+              is_deleted: parent.is_deleted,
+              sender: parent.sender,
+            };
+          }
+        }
+
         return [incoming, ...prev];
       });
 

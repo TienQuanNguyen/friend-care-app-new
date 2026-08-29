@@ -75,7 +75,9 @@ export interface ChatMessageWithSender extends ChatMessage {
    * The parent message (one level deep) when this is a reply.
    * Populated by the fetch layer; null for top-level messages.
    */
-  reply_to: Pick<ChatMessage, 'id' | 'content' | 'type' | 'sender_id' | 'is_deleted'> | null;
+  reply_to: (Pick<ChatMessage, 'id' | 'content' | 'type' | 'sender_id' | 'is_deleted'> & {
+    sender?: MessageSenderProfile | null;
+  }) | null;
 }
 
 // ---------------------------------------------------------------------------

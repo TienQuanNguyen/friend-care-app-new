@@ -18,6 +18,8 @@ import {
   CornerUpLeft,
   Pin,
   Trash2,
+  Film,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { ChatMessageWithSender } from '../../types/chat';
@@ -28,6 +30,7 @@ import type { ChatMessageWithSender } from '../../types/chat';
 
 export interface MessageBubbleProps {
   message: ChatMessageWithSender;
+  allMessages?: ChatMessageWithSender[];
   isOwn: boolean;
   isPending?: boolean;
   status?: 'sending' | 'sent' | 'received' | 'read';
@@ -36,6 +39,7 @@ export interface MessageBubbleProps {
   onPin?: (messageId: string, isPinned: boolean) => void;
   onReact?: (messageId: string, emoji: string) => void;
   onDelete?: (messageId: string) => void;
+  onScrollToMessage?: (messageId: string) => void;
 }
 
 const statusLabels = {
@@ -48,32 +52,140 @@ const statusLabels = {
 const QUICK_REACTIONS = ['❤️', '😂', '🥺', '🥰', '😘', '😢', '😡'];
 
 // ---------------------------------------------------------------------------
-// Sub-component: Reply Preview
+// Helper: Helper for formatting reply content
+// ---------------------------------------------------------------------------
+
+export function renderReplyContent(
+  replyMsg: ChatMessageWithSender['reply_to'] | null,
+  allMessages?: ChatMessageWithSender[],
+  replyToId?: string | null
+) {
+  let target = replyMsg;
+  if (!target && replyToId && allMessages) {
+    const found = allMessages.find((m) => m.id === replyToId);
+    if (found) {
+      target = {
+        id: found.id,
+        content: found.content,
+        type: found.type,
+        sender_id: found.sender_id,
+        is_deleted: found.is_deleted,
+        sender: found.sender,
+      };
+    }
+  }
+
+  if (!target || target.is_deleted) {
+    return {
+      senderName: target?.sender?.display_name ?? null,
+      text: 'Tin nhắn đã bị xóa',
+      isDeleted: true,
+      mediaType: null,
+      mediaUrl: null,
+    };
+  }
+
+  const senderName = target.sender?.display_name ?? null;
+
+  if (target.type === 'IMAGE') {
+    return {
+      senderName,
+      text: 'Hình ảnh',
+      isDeleted: false,
+      mediaType: 'IMAGE' as const,
+      mediaUrl: target.content,
+    };
+  }
+
+  if (target.type === 'VIDEO') {
+    return {
+      senderName,
+      text: 'Video',
+      isDeleted: false,
+      mediaType: 'VIDEO' as const,
+      mediaUrl: target.content,
+    };
+  }
+
+  if (target.type === 'EMOJI') {
+    return {
+      senderName,
+      text: target.content ?? 'Biểu cảm',
+      isDeleted: false,
+      mediaType: 'EMOJI' as const,
+      mediaUrl: null,
+    };
+  }
+
+  return {
+    senderName,
+    text: target.content || '',
+    isDeleted: false,
+    mediaType: 'TEXT' as const,
+    mediaUrl: null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Sub-component: Reply Preview (Instagram Style)
 // ---------------------------------------------------------------------------
 
 const ReplyPreview: React.FC<{
   reply: ChatMessageWithSender['reply_to'];
+  replyToId?: string | null;
+  allMessages?: ChatMessageWithSender[];
   isOwn: boolean;
-}> = ({ reply, isOwn }) => {
-  if (!reply) return null;
+  onScrollToMessage?: (messageId: string) => void;
+}> = ({ reply, replyToId, allMessages, isOwn, onScrollToMessage }) => {
+  const replyInfo = React.useMemo(() => {
+    if (!reply && !replyToId) return null;
+    return renderReplyContent(reply, allMessages, replyToId);
+  }, [reply, replyToId, allMessages]);
 
-  const text = reply.is_deleted
-    ? 'Tin nhắn đã thu hồi'
-    : reply.content ?? '[Media]';
+  if (!replyInfo) return null;
 
   return (
     <div
+      onClick={(e) => {
+        e.stopPropagation();
+        const targetId = reply?.id || replyToId;
+        if (targetId) {
+          onScrollToMessage?.(targetId);
+        }
+      }}
       className={cn(
-        'flex items-start gap-1 px-2.5 py-1 rounded-xl mb-1 text-[11px] max-w-[90%] border-l-2 select-none',
+        'flex items-center gap-2 px-2.5 py-1.5 rounded-xl mb-1 text-xs select-none cursor-pointer transition-all hover:opacity-90 max-w-full',
         isOwn
-          ? 'border-brand-light/70 bg-brand/10 text-brand self-end'
-          : 'border-gold/60 bg-gold-lightest/60 text-text-soft self-start',
+          ? 'bg-black/15 text-white/90 border-l-2 border-white/80'
+          : 'bg-canvas-cool/90 text-text-soft border-l-2 border-brand/70 shadow-2xs'
       )}
+      title="Nhấn để xem tin nhắn gốc"
     >
-      <CornerDownRight className="w-3 h-3 mt-0.5 shrink-0 opacity-60" />
-      <span className={cn('truncate max-w-[150px]', reply.is_deleted && 'italic opacity-60')}>
-        {text}
-      </span>
+      {/* Thumbnail if Image */}
+      {replyInfo.mediaUrl && replyInfo.mediaType === 'IMAGE' && !replyInfo.isDeleted && (
+        <img
+          src={replyInfo.mediaUrl}
+          alt="thumbnail"
+          className="w-7 h-7 rounded object-cover shrink-0 border border-black/10"
+        />
+      )}
+      {/* Video icon if Video */}
+      {replyInfo.mediaType === 'VIDEO' && !replyInfo.isDeleted && (
+        <div className="w-7 h-7 rounded bg-black/20 flex items-center justify-center shrink-0">
+          <Film className="w-3.5 h-3.5 text-white" />
+        </div>
+      )}
+
+      <div className="flex-1 min-w-0">
+        {replyInfo.senderName && (
+          <div className={cn('text-[10px] font-bold truncate mb-0.5 leading-none', isOwn ? 'text-white/95' : 'text-brand')}>
+            ↪ {replyInfo.senderName}
+          </div>
+        )}
+        <div className={cn('text-[11.5px] truncate leading-tight', replyInfo.isDeleted && 'italic opacity-75')}>
+          {replyInfo.text}
+        </div>
+      </div>
     </div>
   );
 };
@@ -84,6 +196,7 @@ const ReplyPreview: React.FC<{
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
+  allMessages,
   isOwn,
   isPending = false,
   status,
@@ -92,6 +205,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onPin,
   onReact,
   onDelete,
+  onScrollToMessage,
 }) => {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const timeLabel = format(new Date(message.created_at), 'HH:mm', { locale: vi });
@@ -169,8 +283,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         )}
 
         {/* Reply Preview Above Main Message */}
-        {message.reply_to && (
-          <ReplyPreview reply={message.reply_to} isOwn={isOwn} />
+        {(message.reply_to || message.reply_to_id) && (
+          <ReplyPreview
+            reply={message.reply_to}
+            replyToId={message.reply_to_id}
+            allMessages={allMessages}
+            isOwn={isOwn}
+            onScrollToMessage={onScrollToMessage}
+          />
         )}
 
         {/* Message Bubble Container */}

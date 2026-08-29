@@ -458,7 +458,13 @@ export const ChatRoom: React.FC = () => {
               <span className="font-bold">Ghim: </span>
               <span className="opacity-90">
                 {newestPinnedMessage.sender?.display_name ?? 'Người dùng'}:{' '}
-                {newestPinnedMessage.is_deleted ? 'Tin nhắn đã thu hồi' : (newestPinnedMessage.content ?? '[Media]')}
+                {newestPinnedMessage.is_deleted
+                  ? 'Tin nhắn đã thu hồi'
+                  : newestPinnedMessage.type === 'IMAGE'
+                  ? '📷 Hình ảnh'
+                  : newestPinnedMessage.type === 'VIDEO'
+                  ? '🎥 Video'
+                  : (newestPinnedMessage.content || '')}
               </span>
             </div>
             <button
@@ -490,6 +496,7 @@ export const ChatRoom: React.FC = () => {
         onPin={handlePin}
         onReact={handleReact}
         onDelete={handleRecall}
+        onScrollToMessage={handleScrollToMessage}
       />
 
       {/* ── Typing indicator ── */}

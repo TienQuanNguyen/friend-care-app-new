@@ -43,6 +43,7 @@ export interface MessageListProps {
   onPin: (messageId: string, isPinned: boolean) => void;
   onReact: (messageId: string, emoji: string) => void;
   onDelete: (messageId: string) => void;
+  onScrollToMessage?: (messageId: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +112,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   onPin,
   onReact,
   onDelete,
+  onScrollToMessage,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -243,6 +245,7 @@ export const MessageList: React.FC<MessageListProps> = ({
             <MessageBubble
               key={msg.id}
               message={msg}
+              allMessages={messages}
               isOwn={isOwn}
               isPending={isPending}
               status={status}
@@ -251,6 +254,7 @@ export const MessageList: React.FC<MessageListProps> = ({
               onPin={onPin}
               onReact={onReact}
               onDelete={onDelete}
+              onScrollToMessage={onScrollToMessage}
             />
           );
         })}
