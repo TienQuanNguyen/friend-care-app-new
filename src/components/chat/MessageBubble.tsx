@@ -135,8 +135,9 @@ const ReplyPreview: React.FC<{
   replyToId?: string | null;
   allMessages?: ChatMessageWithSender[];
   isOwn: boolean;
+  senderName: string;
   onScrollToMessage?: (messageId: string) => void;
-}> = ({ reply, replyToId, allMessages, isOwn, onScrollToMessage }) => {
+}> = ({ reply, replyToId, allMessages, isOwn, senderName, onScrollToMessage }) => {
   const replyInfo = React.useMemo(() => {
     if (!reply && !replyToId) return null;
     return renderReplyContent(reply, allMessages, replyToId);
@@ -144,46 +145,65 @@ const ReplyPreview: React.FC<{
 
   if (!replyInfo) return null;
 
-  return (
-    <div
-      onClick={(e) => {
-        e.stopPropagation();
-        const targetId = reply?.id || replyToId;
-        if (targetId) {
-          onScrollToMessage?.(targetId);
-        }
-      }}
-      className={cn(
-        'flex items-center gap-2 px-2.5 py-1.5 rounded-xl mb-1 text-xs select-none cursor-pointer transition-all hover:opacity-90 max-w-full',
-        isOwn
-          ? 'bg-black/15 text-white/90 border-l-2 border-white/80'
-          : 'bg-canvas-cool/90 text-text-soft border-l-2 border-brand/70 shadow-2xs'
-      )}
-      title="Nhấn để xem tin nhắn gốc"
-    >
-      {/* Thumbnail if Image */}
-      {replyInfo.mediaUrl && replyInfo.mediaType === 'IMAGE' && !replyInfo.isDeleted && (
-        <img
-          src={replyInfo.mediaUrl}
-          alt="thumbnail"
-          className="w-7 h-7 rounded object-cover shrink-0 border border-black/10"
-        />
-      )}
-      {/* Video icon if Video */}
-      {replyInfo.mediaType === 'VIDEO' && !replyInfo.isDeleted && (
-        <div className="w-7 h-7 rounded bg-black/20 flex items-center justify-center shrink-0">
-          <Film className="w-3.5 h-3.5 text-white" />
-        </div>
-      )}
+  const headerLabel = isOwn
+    ? `Bạn đã trả lời ${replyInfo.senderName ?? 'tin nhắn'}`
+    : `${senderName} đã trả lời ${replyInfo.senderName ?? 'tin nhắn'}`;
 
-      <div className="flex-1 min-w-0">
-        {replyInfo.senderName && (
-          <div className={cn('text-[10px] font-bold truncate mb-0.5 leading-none', isOwn ? 'text-white/95' : 'text-brand')}>
-            ↪ {replyInfo.senderName}
+  return (
+    <div className={cn('flex flex-col mb-1 max-w-full', isOwn ? 'items-end' : 'items-start')}>
+      {/* ── Muted floating header line (Instagram Style) ── */}
+      <div
+        onClick={(e) => {
+          e.stopPropagation();
+          const targetId = reply?.id || replyToId;
+          if (targetId) onScrollToMessage?.(targetId);
+        }}
+        className={cn(
+          'text-[11px] text-text-soft/80 font-normal flex items-center gap-1 mb-0.5 select-none cursor-pointer hover:underline hover:text-brand transition-colors',
+          isOwn ? 'pr-0.5' : 'pl-0.5'
+        )}
+        title="Nhấn để xem tin nhắn gốc"
+      >
+        <CornerDownRight className="w-3 h-3 text-text-soft/70 shrink-0" />
+        <span className="truncate max-w-[240px] sm:max-w-[320px]">
+          {headerLabel}
+        </span>
+      </div>
+
+      {/* ── Quoted message preview box ── */}
+      <div
+        onClick={(e) => {
+          e.stopPropagation();
+          const targetId = reply?.id || replyToId;
+          if (targetId) onScrollToMessage?.(targetId);
+        }}
+        className={cn(
+          'flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs select-none cursor-pointer transition-all hover:opacity-95 max-w-full',
+          isOwn
+            ? 'bg-black/15 text-white/90 border-l-2 border-white/80'
+            : 'bg-canvas-cool/90 text-text-soft border-l-2 border-brand/70 shadow-2xs'
+        )}
+        title="Nhấn để xem tin nhắn gốc"
+      >
+        {/* Thumbnail if Image */}
+        {replyInfo.mediaUrl && replyInfo.mediaType === 'IMAGE' && !replyInfo.isDeleted && (
+          <img
+            src={replyInfo.mediaUrl}
+            alt="thumbnail"
+            className="w-7 h-7 rounded object-cover shrink-0 border border-black/10"
+          />
+        )}
+        {/* Video icon if Video */}
+        {replyInfo.mediaType === 'VIDEO' && !replyInfo.isDeleted && (
+          <div className="w-7 h-7 rounded bg-black/20 flex items-center justify-center shrink-0">
+            <Film className="w-3.5 h-3.5 text-white" />
           </div>
         )}
-        <div className={cn('text-[11.5px] truncate leading-tight', replyInfo.isDeleted && 'italic opacity-75')}>
-          {replyInfo.text}
+
+        <div className="flex-1 min-w-0">
+          <div className={cn('text-[11.5px] truncate leading-tight', replyInfo.isDeleted && 'italic opacity-75')}>
+            {replyInfo.text}
+          </div>
         </div>
       </div>
     </div>
@@ -289,6 +309,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             replyToId={message.reply_to_id}
             allMessages={allMessages}
             isOwn={isOwn}
+            senderName={senderName}
             onScrollToMessage={onScrollToMessage}
           />
         )}
