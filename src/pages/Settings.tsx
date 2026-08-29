@@ -3,13 +3,14 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { useCareSpace } from '../contexts/CareSpaceContext';
-import { LogOut, Copy, Users, Smile, Check, UserCircle, Megaphone, Power, PowerOff, History, RefreshCw } from 'lucide-react';
+import { LogOut, Copy, Users, Smile, Check, UserCircle, Megaphone, Power, PowerOff, History, RefreshCw, Bell, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Input } from '../components/ui/Input';
 import { isAdminEmail } from '../types';
 import { announcementService } from '../services/announcementService';
 import { activityLogService, type ActivityLog } from '../services/activityLogService';
 import { format } from 'date-fns';
+import { useWebPush } from '../hooks/useWebPush';
 
 const AVATAR_OPTIONS = [
   { icon: '📷', label: 'Camera' },
@@ -45,6 +46,9 @@ export const Settings = () => {
   const [selectedAvatar, setSelectedAvatar] = React.useState(myProfile?.avatar_emoji || '🐱');
   const [editingName, setEditingName] = React.useState(myProfile?.display_name || '');
   const [isSavingName, setIsSavingName] = React.useState(false);
+
+  // Web Push Notifications
+  const { permission, isSubscribed, isLoading: pushLoading, requestPermissionAndSubscribe, unsubscribe } = useWebPush();
 
   // Admin announcement state
   const isAdmin = isAdminEmail(user?.email);
@@ -263,6 +267,94 @@ export const Settings = () => {
               </motion.button>
             ))}
           </div>
+        </div>
+      </Card>
+
+      {/* === WEB PUSH NOTIFICATIONS CARD === */}
+      <Card>
+        <h2 className="text-xl font-bold text-brand mb-2 flex items-center gap-2">
+          <Bell className="w-5 h-5" />
+          Thông báo tin nhắn
+        </h2>
+        <p className="text-sm text-text-soft mb-4">
+          Nhận thông báo trình duyệt khi người ấy gửi tin nhắn mới (ngay cả khi đóng ứng dụng).
+        </p>
+
+        <div className="p-4 rounded-2xl bg-canvas-cool border border-canvas-dark space-y-3">
+          {permission === 'granted' && isSubscribed && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-green-700 font-semibold text-sm">
+                <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+                <span>● Đang bật thông báo tin nhắn</span>
+              </div>
+              <Button
+                onClick={() => void unsubscribe()}
+                disabled={pushLoading}
+                variant="outline"
+                className="text-xs px-3 py-1.5 border-gray-300 text-text-soft hover:text-red-600"
+              >
+                {pushLoading ? 'Đang xử lý...' : 'Tắt thông báo'}
+              </Button>
+            </div>
+          )}
+
+          {permission === 'granted' && !isSubscribed && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-amber-700 font-semibold text-sm">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                <span>○ Chưa kích hoạt Push Subscription</span>
+              </div>
+              <Button
+                onClick={() => void requestPermissionAndSubscribe()}
+                disabled={pushLoading}
+                className="bg-brand text-white text-xs px-4 py-2 flex items-center gap-1.5"
+              >
+                <Bell className="w-4 h-4" />
+                {pushLoading ? 'Đang kích hoạt...' : 'Kích hoạt lại'}
+              </Button>
+            </div>
+          )}
+
+          {permission === 'default' && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-text-soft font-semibold text-sm">
+                <span className="w-2.5 h-2.5 rounded-full bg-gray-400" />
+                <span>○ Chưa bật thông báo</span>
+              </div>
+              <Button
+                onClick={() => void requestPermissionAndSubscribe()}
+                disabled={pushLoading}
+                className="bg-brand text-white text-sm px-4 py-2 flex items-center gap-1.5 shadow-frap-base"
+              >
+                <Bell className="w-4 h-4" />
+                {pushLoading ? 'Đang xin quyền...' : '🔔 Bật thông báo tin nhắn'}
+              </Button>
+            </div>
+          )}
+
+          {permission === 'denied' && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-red-600 font-bold text-sm">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>🚫 Thông báo đã bị chặn trên trình duyệt</span>
+              </div>
+              <p className="text-xs text-text-soft leading-relaxed bg-white/80 p-3 rounded-xl border border-red-100">
+                Trình duyệt của bạn đang chặn quyền thông báo. Để bật lại:
+                <br />
+                1. Nhấn vào biểu tượng <strong>Ổ khóa / Cài đặt trang web</strong> cạnh thanh địa chỉ URL.
+                <br />
+                2. Tìm mục <strong>Thông báo (Notifications)</strong> và chọn <strong>Cho phép (Allow)</strong>.
+                <br />
+                3. Tải lại trang web này.
+              </p>
+            </div>
+          )}
+
+          {permission === 'unsupported' && (
+            <div className="text-xs text-text-soft italic">
+              Trình duyệt của bạn không hỗ trợ Web Push Notifications.
+            </div>
+          )}
         </div>
       </Card>
 

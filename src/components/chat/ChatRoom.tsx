@@ -21,11 +21,12 @@ import React, {
   useMemo,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircleDashed, WifiOff, Pin, X } from 'lucide-react';
+import { MessageCircleDashed, WifiOff, Pin, X, Bell } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCareSpace } from '../../contexts/CareSpaceContext';
 import { useActivityLog } from '../../hooks/useActivityLog';
+import { useWebPush } from '../../hooks/useWebPush';
 import {
   useChatMessages,
   sendMessage,
@@ -92,6 +93,7 @@ export const ChatRoom: React.FC = () => {
   const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
   const { log } = useActivityLog();
+  const { permission, requestPermissionAndSubscribe, isLoading: isPushLoading } = useWebPush();
 
   const careSpaceId = careSpace?.id ?? null;
 
@@ -440,6 +442,21 @@ export const ChatRoom: React.FC = () => {
       {error && (
         <div className="absolute top-4 right-14 z-50 flex items-center gap-1.5 text-[11px] bg-red-50 text-semantic-destructive font-semibold px-3 py-1.5 rounded-full shadow border border-red-200 animate-pulse select-none">
           <WifiOff className="w-3.5 h-3.5" /> Mất kết nối
+        </div>
+      )}
+
+      {/* Floating Push Notification Enable Button */}
+      {permission === 'default' && (
+        <div className="absolute top-3 right-3 z-50">
+          <button
+            onClick={() => void requestPermissionAndSubscribe()}
+            disabled={isPushLoading}
+            className="flex items-center gap-1.5 text-[11px] font-bold bg-brand text-white hover:bg-brand-accent px-3 py-1.5 rounded-full shadow-md transition-all active:scale-95 border border-white/20 select-none"
+            title="Bật thông báo tin nhắn mới"
+          >
+            <Bell className="w-3.5 h-3.5" />
+            {isPushLoading ? 'Đang xin quyền...' : 'Bật thông báo'}
+          </button>
         </div>
       )}
 
