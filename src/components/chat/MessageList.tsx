@@ -115,20 +115,21 @@ export const MessageList: React.FC<MessageListProps> = ({
   const bottomRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const prevCountRef = useRef(messages.length);
+  const newestMsgId = messages[0]?.id;
+  const prevNewestMsgIdRef = useRef<string | undefined>(newestMsgId);
   const userScrolledUpRef = useRef(false);
 
-  // Scroll-to-bottom: fires when a genuinely new message arrives at the bottom
+  // Scroll-to-bottom: fires when a genuinely new message arrives at position [0] (newest first)
   useEffect(() => {
-    const prevCount = prevCountRef.current;
-    const newCount = messages.length;
-    prevCountRef.current = newCount;
+    const prevId = prevNewestMsgIdRef.current;
+    prevNewestMsgIdRef.current = newestMsgId;
 
-    const isNewMessage = newCount > prevCount;
-    if (isNewMessage && !userScrolledUpRef.current) {
+    // Trigger scroll down only if a new message arrived at the top of array (newest position)
+    const isNewMessageArrived = newestMsgId && newestMsgId !== prevId;
+    if (isNewMessageArrived && !userScrolledUpRef.current) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages.length]);
+  }, [newestMsgId]);
 
   const handleScroll = useCallback(() => {
     const el = listRef.current;

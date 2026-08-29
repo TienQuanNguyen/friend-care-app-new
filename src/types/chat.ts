@@ -5,6 +5,8 @@
  * No UI concerns belong here — data shape only.
  */
 
+import type React from 'react';
+
 // ---------------------------------------------------------------------------
 // Enum
 // ---------------------------------------------------------------------------
@@ -135,6 +137,8 @@ export interface RealtimeMessagePayload {
 export interface UseChatMessagesReturn {
   /** Current list of messages, newest first. */
   messages: ChatMessageWithSender[];
+  /** Setter for messages state — used for optimistic UI updates (reactions). */
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessageWithSender[]>>;
   /** True while the initial page is loading. */
   isLoading: boolean;
   /** True while an older page is being fetched (load-more). */

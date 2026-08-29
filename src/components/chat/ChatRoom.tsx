@@ -96,7 +96,7 @@ export const ChatRoom: React.FC = () => {
   const careSpaceId = careSpace?.id ?? null;
 
   // ── Phase-1 data hook ────────────────────────────────────────────────────
-  const { messages, isLoading, isFetchingMore, error, hasMore, loadMore } =
+  const { messages, setMessages, isLoading, isFetchingMore, error, hasMore, loadMore } =
     useChatMessages(careSpaceId);
 
   // ── Media upload ─────────────────────────────────────────────────────────
@@ -145,28 +145,6 @@ export const ChatRoom: React.FC = () => {
   >(new Map());
 
   const pendingIds = useMemo(() => new Set(pendingMessages.keys()), [pendingMessages]);
-
-  // Remove from pending when we see a matching confirmed message in the stream (since temp IDs don't match database UUIDs).
-  useEffect(() => {
-    if (pendingMessages.size === 0) return;
-    const newPending = new Map(pendingMessages);
-    let changed = false;
-
-    for (const [tempId, pending] of newPending) {
-      const isConfirmed = messages.some(
-        (m) =>
-          m.sender_id === pending.sender_id &&
-          m.content === pending.content &&
-          m.type === pending.type
-      );
-      if (isConfirmed) {
-        newPending.delete(tempId);
-        changed = true;
-      }
-    }
-
-    if (changed) setPendingMessages(newPending);
-  }, [messages, pendingMessages]);
 
   // Combined list: real messages + pending ones prepended
   const allMessages = useMemo(() => {
@@ -393,13 +371,22 @@ export const ChatRoom: React.FC = () => {
         newReactions[user.id] = emoji;
       }
 
+      // Optimistic local update
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, reactions: newReactions } : m))
+      );
+
       try {
         await updateMessageReactions(messageId, newReactions);
       } catch (err) {
         console.error('[ChatRoom] handleReact failed:', err);
+        // Rollback on failure
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, reactions: currentReactions } : m))
+        );
       }
     },
-    [user, messages],
+    [user, messages, setMessages],
   );
 
   const handlePin = useCallback(async (messageId: string, isPinned: boolean) => {

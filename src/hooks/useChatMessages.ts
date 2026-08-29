@@ -30,6 +30,7 @@ import type {
   RealtimeMessagePayload,
   UseChatMessagesReturn,
 } from '../types/chat';
+import type { Dispatch, SetStateAction } from 'react';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -132,6 +133,27 @@ export async function fetchMessages(
     nextCursor,
     hasMore: messages.length === LIMIT,
   };
+}
+
+// ---------------------------------------------------------------------------
+// fetchSingleMessage — hydrate a Realtime stub with joined columns
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches a single message by ID with the full MESSAGE_SELECT join.
+ * Used to hydrate flat Realtime INSERT payloads with sender/reply_to data.
+ */
+export async function fetchSingleMessage(
+  messageId: string,
+): Promise<ChatMessageWithSender | null> {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select(MESSAGE_SELECT)
+    .eq('id', messageId)
+    .single();
+
+  if (error || !data) return null;
+  return data as unknown as ChatMessageWithSender;
 }
 
 // ---------------------------------------------------------------------------
@@ -281,7 +303,7 @@ export function useChatMessages(careSpaceId: string | null): UseChatMessagesRetu
     if (payload.eventType === 'INSERT') {
       // The Realtime payload contains a flat DB row — it has no joined columns.
       // We synthesise a minimal `ChatMessageWithSender` so it can live in state
-      // alongside fully-joined messages. The UI layer must handle `sender = null`.
+      // alongside fully-joined messages, then immediately hydrate it.
       const incoming: ChatMessageWithSender = {
         ...(payload.new as ChatMessage),
         sender: null,
@@ -293,14 +315,25 @@ export function useChatMessages(careSpaceId: string | null): UseChatMessagesRetu
         if (prev.some((m) => m.id === incoming.id)) return prev;
         return [incoming, ...prev];
       });
+
+      // Hydrate the stub with full joined data (sender name, reply_to preview)
+      // so it renders identically to fetched messages without a page refresh.
+      void fetchSingleMessage(incoming.id).then((hydrated) => {
+        if (!hydrated) return;
+        setMessages((prev) =>
+          prev.map((m) => (m.id === hydrated.id ? hydrated : m)),
+        );
+      });
     }
 
     if (payload.eventType === 'UPDATE') {
+      // With REPLICA IDENTITY FULL, payload.new contains the complete row.
+      // Merge updated fields but preserve existing joined data (sender, reply_to)
+      // which are not part of the DB row and thus not in the payload.
       setMessages((prev) =>
         prev.map((m) =>
           m.id === payload.new.id
-            ? // Merge updated fields; preserve joined data already present.
-              { ...m, ...payload.new }
+            ? { ...m, ...payload.new, sender: m.sender, reply_to: m.reply_to }
             : m,
         ),
       );
@@ -395,6 +428,7 @@ export function useChatMessages(careSpaceId: string | null): UseChatMessagesRetu
 
   return {
     messages,
+    setMessages,
     isLoading,
     isFetchingMore,
     error,

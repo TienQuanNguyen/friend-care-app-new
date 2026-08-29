@@ -29,6 +29,8 @@ import {
   X,
   Loader2,
   CornerDownRight,
+  Image as ImageIcon,
+  Smile,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { ChatMessageWithSender } from '../../types/chat';
@@ -74,6 +76,8 @@ const TYPING_STOP_DELAY_MS = 2000;
 
 export const MessageInput: React.FC<MessageInputProps> = ({
   onSendText,
+  onSendMedia,
+  onSendEmoji,
   replyTo,
   onCancelReply,
   uploadProgress,
@@ -82,8 +86,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 }) => {
   const [text, setText] = useState('');
   const [isLocalSending, setIsLocalSending] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
 
@@ -171,6 +177,41 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     [handleSendText],
   );
 
+  const handleFileSelect = useCallback(
+    async (e: ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files || files.length === 0 || activeSending) return;
+      const file = files[0];
+      e.target.value = '';
+
+      try {
+        setIsLocalSending(true);
+        await onSendMedia(file);
+      } catch (err) {
+        console.error('[MessageInput] onSendMedia error:', err);
+      } finally {
+        setIsLocalSending(false);
+      }
+    },
+    [activeSending, onSendMedia],
+  );
+
+  const handleEmojiClick = useCallback(
+    async (emoji: string) => {
+      if (activeSending) return;
+      setShowEmojiPicker(false);
+      try {
+        setIsLocalSending(true);
+        await onSendEmoji(emoji);
+      } catch (err) {
+        console.error('[MessageInput] onSendEmoji error:', err);
+      } finally {
+        setIsLocalSending(false);
+      }
+    },
+    [activeSending, onSendEmoji],
+  );
+
 
 
   const canSend = text.trim().length > 0 && !activeSending;
@@ -227,8 +268,75 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         )}
       </AnimatePresence>
 
+      {/* Quick Emoji Popover */}
+      <AnimatePresence>
+        {showEmojiPicker && (
+          <motion.div
+            key="emoji-picker"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="flex items-center gap-2 px-4 py-2 bg-canvas-cool/60 border-b border-canvas-dark"
+          >
+            <span className="text-xs text-text-soft font-medium mr-1">Gửi nhanh:</span>
+            {QUICK_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => void handleEmojiClick(emoji)}
+                disabled={activeSending}
+                className="text-lg hover:scale-125 active:scale-95 transition-transform p-1 rounded hover:bg-white"
+              >
+                {emoji}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setShowEmojiPicker(false)}
+              className="ml-auto text-xs text-text-soft hover:text-text-main p-1"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+
       {/* Input row */}
       <div className="flex items-end gap-2 px-3 py-2">
+        {/* Media upload button */}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={activeSending}
+          className="shrink-0 p-2.5 rounded-full text-text-soft hover:text-brand hover:bg-canvas-cool transition-colors disabled:opacity-50"
+          title="Tải ảnh hoặc video"
+        >
+          <ImageIcon className="w-5 h-5" />
+        </button>
+
+        {/* Emoji picker toggle button */}
+        <button
+          type="button"
+          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          disabled={activeSending}
+          className={cn(
+            'shrink-0 p-2.5 rounded-full text-text-soft hover:text-brand hover:bg-canvas-cool transition-colors disabled:opacity-50',
+            showEmojiPicker && 'text-brand bg-canvas-cool',
+          )}
+          title="Biểu cảm nhanh"
+        >
+          <Smile className="w-5 h-5" />
+        </button>
+
         {/* Text area */}
         <textarea
           ref={textareaRef}
