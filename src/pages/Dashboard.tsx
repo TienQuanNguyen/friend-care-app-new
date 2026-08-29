@@ -15,6 +15,7 @@ import { vi } from 'date-fns/locale';
 import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 import { MiniConfetti } from '../components/ui/MiniConfetti';
 import { useAuth } from '../contexts/AuthContext';
+import { useStreak } from '../hooks/useStreak';
 
 const stagger: Variants = {
   initial: {},
@@ -98,6 +99,8 @@ export function SpinningVinylIcon() {
 export const Dashboard = () => {
   const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
+  const { status: streakStatus, loading: streakLoading } = useStreak();
+  const currentStreak = streakStatus?.currentStreak ?? 0;
   const [recentMoods, setRecentMoods] = useState<MoodEntry[]>([]);
   const [upcomingSchedules, setUpcomingSchedules] = useState<Schedule[]>([]);
   const [recentFoods, setRecentFoods] = useState<FoodPlace[]>([]);
@@ -535,7 +538,13 @@ export const Dashboard = () => {
   return (
     <motion.div className="space-y-6 max-w-5xl mx-auto" variants={stagger} initial="initial" animate="animate">
       {/* Header */}
-      <motion.section className="text-center mb-8" variants={fadeUp}>
+      <motion.section className="text-center mb-8 flex flex-col items-center justify-center" variants={fadeUp}>
+        {/* Streak Badge */}
+        <div className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1 bg-amber-50/90 border border-amber-200/80 rounded-pill text-xs font-bold text-amber-900 shadow-sm mb-3 transition-transform hover:scale-105 select-none">
+          <Flame className="w-4 h-4 text-orange-500 fill-orange-400 shrink-0" />
+          <span>{streakLoading ? '–' : `${currentStreak} ngày`}</span>
+        </div>
+
         <h1 className="text-3xl font-bold text-brand tracking-tight mb-2">{getGreeting()}</h1>
         <p className="text-text-soft text-sm">
           Chào mừng đến với <span className="font-semibold text-brand">{careSpace?.name || 'Friend Care'}</span>. Hôm nay hai bạn cảm thấy thế nào?
