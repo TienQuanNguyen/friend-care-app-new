@@ -118,6 +118,12 @@ const getMoodStyle = (mood: string) => {
   };
 };
 
+const needsExpansion = (text: string | null | undefined, maxCharacters: number, maxLines: number) => {
+  if (!text) return false;
+
+  return text.length > maxCharacters || text.split(/\r?\n/).length > maxLines;
+};
+
 export const MoodJournal = () => {
   const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
@@ -888,7 +894,10 @@ export const MoodJournal = () => {
                   const isCurrentUser = entry.created_by === user?.id;
                   const writerProfile = getProfile(entry.created_by);
                   const isExpanded = expandedEntries.has(entry.id);
-                  const isLongText = (entry.note?.length || 0) > 100 || (entry.gratitude?.length || 0) > 100;
+                  const isLongText =
+                    needsExpansion(entry.note, 60, 2) ||
+                    needsExpansion(entry.gratitude, 60, 2) ||
+                    needsExpansion(entry.ai_advice, 120, 3);
                   
                   return (
                     <Card
@@ -1077,7 +1086,8 @@ export const MoodJournal = () => {
                         )}
                         
                         {isLongText && (
-                          <button 
+                          <button
+                            type="button"
                             onClick={() => toggleExpand(entry.id)}
                             className="mt-3 text-xs font-bold text-brand-accent hover:underline focus:outline-none"
                           >
