@@ -6,6 +6,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useCareSpace } from '../../contexts/CareSpaceContext';
 import { cn } from '../../lib/utils';
 import { useActivityLog } from '../../hooks/useActivityLog';
+import { MaintenanceLockScreen } from '../MaintenanceLockScreen';
+import { MAINTENANCE_MODE } from '../../config/maintenance';
+import { isAdminEmail } from '../../types';
 
 /** Routes that should fill the viewport without the default padded container. */
 const FULL_HEIGHT_ROUTES = ['/chat'];
@@ -44,6 +47,10 @@ export const AppLayout = () => {
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  if (MAINTENANCE_MODE && !isAdminEmail(user.email)) {
+    return <MaintenanceLockScreen />;
   }
 
   if (!careSpace) {
