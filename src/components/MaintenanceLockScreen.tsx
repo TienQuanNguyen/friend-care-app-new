@@ -4,7 +4,7 @@ import { musicService } from '../services/musicService';
 import type { MusicNote } from '../types';
 
 const LOCK_MESSAGE =
-  'Xin chào em thân yêu, một lời thông báo buồn đến người dùng thân yêu của anh. Giai đoạn này admin có vẻ không ổn và tinh thần không ổn định. Cậu ấy sẽ phải một mình tự chất vấn lại bản thân một khoảng thời gian đến khi nào ổn thì thôi. Trong giai đoạn này xin quý khách hãy nghe bài nhạc dưới đây để thư giãn trong lúc app khóa ạ. Cảm ơn vì đã yêu thương.';
+  'Xin chào em thân yêu, một lời thông báo buồn đến người dùng thân yêu của anh. Giai đoạn này admin có vẻ không ổn và tinh thần không ổn định. Cậu ấy sẽ phải một mình tự chất vấn lại bản thân một khoảng thời gian đến khi nào ổn thì thôi. Trong giai đoạn này xin quý khách hãy nghe bài nhạc dưới đây để thư giãn trong lúc app khóa ạ. Anh chúc em thi tốt, luôn cầu mong sự bình an và suôn sẻ đến với em. Em sẽ làm được suôn sẻ nhất - anh tin như vậy. Vì em rất giỏi mà. Anh nhớ em';
 
 function getSpotifyEmbedUrl(value?: string | null): string | null {
   if (!value) return null;
