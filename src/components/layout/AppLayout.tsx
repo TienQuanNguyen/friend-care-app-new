@@ -60,10 +60,19 @@ export const AppLayout = () => {
   const isFullHeight = FULL_HEIGHT_ROUTES.some((r) => location.pathname.startsWith(r));
 
   return (
-    <div className="flex h-screen bg-canvas overflow-hidden">
+    <div className="relative flex h-screen overflow-hidden bg-canvas">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+        {/* Ocean blue glow – top left */}
+        <div className="absolute -left-20 -top-32 h-[32rem] w-[32rem] rounded-full bg-[#A8D9EE]/45 blur-3xl" />
+        {/* Cactus green glow – bottom right */}
+        <div className="absolute bottom-[-16rem] right-[-8rem] h-[30rem] w-[30rem] rounded-full bg-[#A8D5C0]/35 blur-3xl" />
+        {/* Sand warm glow – center right subtle */}
+        <div className="absolute right-[20%] top-[30%] h-[20rem] w-[20rem] rounded-full bg-[#EDD9B8]/20 blur-3xl" />
+        <div className="ocean-dots absolute inset-y-0 right-0 w-[40%] opacity-40" />
+      </div>
       <Sidebar />
       {!isFullHeight && <MobileNav />}
-      <main className={cn("flex-1 overflow-hidden relative flex flex-col", !isFullHeight && "pt-16 md:pt-0")}>
+      <main className={cn("z-10 flex-1 overflow-hidden relative flex flex-col", !isFullHeight && "pt-20 md:pt-0")}>
         {isFullHeight ? (
           // Full-height routes: no wrapper padding, no inner scroll
           <div className="flex-1 flex flex-col overflow-hidden">
@@ -71,7 +80,7 @@ export const AppLayout = () => {
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
-            <div className="max-w-4xl mx-auto p-4 md:p-8">
+            <div className="mx-auto max-w-6xl p-4 md:px-8 md:py-10 xl:px-12">
               <Outlet />
             </div>
           </div>

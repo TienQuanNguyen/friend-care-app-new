@@ -111,7 +111,7 @@ export const Onboarding = () => {
                 <div className="w-16 h-16 bg-gradient-to-br from-brand to-brand-accent rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-frap-ambient">
                   <Heart className="w-8 h-8 text-white fill-white" />
                 </div>
-                <h1 className="text-2xl font-bold text-text-main tracking-tight">Friend Care</h1>
+                <h1 className="font-display text-3xl font-semibold text-brand-house">Friend Care</h1>
                 <p className="text-text-soft mt-2 text-sm">Không gian chăm sóc nhau mỗi ngày</p>
               </div>
               <div className="space-y-3">
@@ -138,7 +138,7 @@ export const Onboarding = () => {
           >
             <Card>
               <div className="text-center mb-6">
-                <h2 className="text-xl font-bold text-text-main">Tham gia không gian</h2>
+                <h2 className="section-title text-xl text-text-main">Tham gia không gian</h2>
                 <p className="text-text-soft text-sm mt-1">Nhập mã mời từ người ấy</p>
               </div>
               <form onSubmit={(e) => { e.preventDefault(); goToAvatarPicker('join'); }} className="space-y-5">
@@ -167,7 +167,7 @@ export const Onboarding = () => {
           >
             <Card>
               <div className="text-center mb-6">
-                <h2 className="text-xl font-bold text-text-main">Tạo không gian mới</h2>
+                <h2 className="section-title text-xl text-text-main">Tạo không gian mới</h2>
                 <p className="text-text-soft text-sm mt-1">Đặt tên cho không gian của đôi bạn</p>
               </div>
               <form onSubmit={(e) => { e.preventDefault(); goToAvatarPicker('create'); }} className="space-y-5">
@@ -196,7 +196,7 @@ export const Onboarding = () => {
           >
             <Card>
               <div className="text-center mb-6">
-                <h2 className="text-xl font-bold text-text-main">Chọn avatar của bạn</h2>
+                <h2 className="section-title text-xl text-text-main">Chọn avatar của bạn</h2>
                 <p className="text-text-soft text-sm mt-1">Icon này sẽ đại diện cho bạn trong không gian chung</p>
               </div>
 

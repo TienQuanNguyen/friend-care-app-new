@@ -68,19 +68,19 @@ export const MaintenanceLockScreen = () => {
       />
 
       <section className="relative mx-auto flex min-h-[calc(100vh-5rem)] max-w-2xl items-center justify-center">
-        <div className="w-full rounded-[28px] border border-white/80 bg-white/95 p-6 text-center shadow-[0_20px_60px_rgba(30,57,50,0.14)] sm:rounded-[36px] sm:p-10">
-          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-brand text-white shadow-[0_12px_30px_rgba(0,98,65,0.28)] sm:h-24 sm:w-24">
+        <div className="w-full rounded-[28px] border border-white/80 bg-white/90 p-6 text-center shadow-[0_24px_70px_-32px_rgba(7,59,76,0.48)] backdrop-blur-xl sm:rounded-[36px] sm:p-10">
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand-house to-brand-accent text-white shadow-[0_14px_34px_rgba(25,119,168,0.3)] sm:h-24 sm:w-24">
             <LockKeyhole aria-hidden="true" className="h-10 w-10 sm:h-12 sm:w-12" strokeWidth={2.2} />
           </div>
 
-          <p className="mb-2 text-xs font-extrabold uppercase tracking-[0.22em] text-brand-accent">
+          <p className="ui-kicker mb-2 text-brand-accent">
             Friend Care đang tạm khóa
           </p>
-          <h1 className="text-2xl font-extrabold leading-tight text-brand-house sm:text-3xl">
+          <h1 className="font-display text-3xl font-semibold leading-tight text-brand-house sm:text-4xl">
             Một lời nhắn nhỏ gửi đến em
           </h1>
 
-          <p className="mx-auto mt-5 max-w-xl text-sm leading-7 text-text-soft sm:text-base sm:leading-8">
+          <p className="body-copy mx-auto mt-5 max-w-xl text-sm text-text-soft sm:text-base">
             {LOCK_MESSAGE}
           </p>
 
@@ -92,7 +92,7 @@ export const MaintenanceLockScreen = () => {
                 <Music2 aria-hidden="true" className="h-4 w-4 text-brand" />
               </span>
               <div>
-                <h2 className="text-sm font-extrabold sm:text-base">Một bài nhạc dành cho em</h2>
+                <h2 className="section-title text-sm sm:text-base">Một bài nhạc dành cho em</h2>
                 <p className="text-xs text-text-soft">Bấm nút phát để nghe trong lúc chờ nhé.</p>
               </div>
             </div>

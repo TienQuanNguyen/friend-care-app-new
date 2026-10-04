@@ -545,7 +545,7 @@ export const MoodJournal = () => {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-brand tracking-tight flex items-center gap-3">
+          <h1 className="flex items-center gap-3 font-display text-4xl font-semibold text-brand-house">
             <Heart className="w-8 h-8 text-brand-accent fill-brand-light" />
             Nhật ký cảm xúc
           </h1>
@@ -565,7 +565,7 @@ export const MoodJournal = () => {
       {isFormOpen && (
         <Card className="bg-white border border-brand-light shadow-card rounded-card overflow-hidden transition-all duration-300">
           <form onSubmit={handleSubmit} className="p-2 space-y-6">
-            <h2 className="font-bold text-xl text-text-main border-b border-canvas-cool pb-4 flex items-center gap-2">
+            <h2 className="section-title flex items-center gap-2 border-b border-canvas-cool pb-4 text-xl text-text-main">
               Trang viết mới ✨
             </h2>
 

@@ -8,54 +8,68 @@ export default {
     extend: {
       colors: {
         brand: {
-          DEFAULT: '#006241',    // Starbucks Green
-          accent: '#00754A',     // Green Accent
-          house: '#1E3932',      // House Green
-          uplift: '#2b5148',     // Green Uplift
-          light: '#d4e9e2',      // Green Light
+          DEFAULT: '#3B99BC',    // Ocean blue chủ đạo
+          accent: '#2882A4',     // Đại dương sâu hơn chút
+          house: '#155F7A',      // Deep coastal blue
+          uplift: '#4EAEC8',     // Sky-ocean giao thoa
+          light: '#CBE9F4',      // Sea mist nhạt
+          pale: '#E8F5FB',       // Bọt biển siêu nhạt
         },
-        gold: {
-          DEFAULT: '#cba258',
-          light: '#dfc49d',
-          lightest: '#faf6ee',
+        cactus: {
+          DEFAULT: '#6DB49A',    // Xanh xương rồng sage
+          light: '#A8D5C0',      // Xương rồng nhạt
+          pale: '#E0F4EC',       // Rất nhạt, gần trắng
+          dark: '#4A8E78',       // Xương rồng đậm
+        },
+        sand: {
+          DEFAULT: '#C9A97A',    // Cát biển vàng nhẹ
+          light: '#EDD9B8',      // Cát nhạt
+          pale: '#FBF4E8',       // Trắng cát
+        },
+        coral: {
+          DEFAULT: '#E8937A',    // San hô nhẹ
+          soft: '#F7DDD5',       // San hô siêu nhạt
         },
         canvas: {
-          DEFAULT: '#f2f0eb',    // Neutral Warm (Primary Background)
-          ceramic: '#ffffff',    // White
-          cool: '#f9f9f9',       // Neutral Cool
-          dark: '#edebe9',       // Ceramic
+          DEFAULT: '#EFF8FC',    // Background chính: trắng biển nhạt
+          ceramic: '#FFFFFF',    // Trắng tinh
+          cool: '#F5FAFD',       // Rất nhạt
+          dark: '#D4EBF5',       // Viền nhạt
         },
         text: {
-          main: 'rgba(0, 0, 0, 0.87)',
-          soft: 'rgba(0, 0, 0, 0.58)',
+          main: '#0D3547',       // Chữ chính: xanh đêm biển
+          soft: '#3D6979',       // Chữ phụ: muted teal
+          muted: '#6A8E9B',      // Chữ mờ
           white: '#ffffff',
-          whiteSoft: 'rgba(255, 255, 255, 0.70)',
-          rewards: '#33433d',
+          whiteSoft: 'rgba(255, 255, 255, 0.75)',
+          rewards: '#155F7A',
         },
         semantic: {
-          destructive: '#c82014',
-          warning: '#fbbc05',
-          success: '#00754A',
+          destructive: '#C8455A',
+          warning: '#D9913A',
+          success: '#4A9E82',
         }
       },
       fontFamily: {
-        sans: ['"Be Vietnam Pro"', 'Inter', 'system-ui', 'sans-serif'],
+        sans: ['"Nunito"', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['"Lora"', 'Georgia', 'serif'],
       },
       borderRadius: {
         'pill': '50px',
-        'card': '12px',
-        'card-sm': '12px',
+        'card': '20px',
+        'card-sm': '14px',
       },
       boxShadow: {
-        'card': '0 2px 12px rgba(0, 0, 0, 0.08)',
-        'card-hover': '0 8px 24px rgba(0, 0, 0, 0.14)',
-        'nav': '0 -2px 10px rgba(0, 0, 0, 0.05)',
-        'frap-base': '0 0 6px rgba(0,0,0,0.24)',
-        'frap-ambient': '0 8px 12px rgba(0,0,0,0.14)',
-        'glow': '0 0 0 3px rgba(0, 117, 74, 0.3)',
+        'card': '0 4px 24px -6px rgba(13, 53, 71, 0.10), 0 1px 4px rgba(59, 153, 188, 0.06)',
+        'card-hover': '0 8px 32px -8px rgba(13, 53, 71, 0.16), 0 2px 8px rgba(59, 153, 188, 0.10)',
+        'nav': '0 4px 24px -8px rgba(13, 53, 71, 0.16), 0 1px 0 rgba(255,255,255,0.9) inset',
+        'frap-base': '0 4px 16px rgba(59, 153, 188, 0.28)',
+        'frap-ambient': '0 8px 28px -10px rgba(13, 53, 71, 0.40)',
+        'glow': '0 0 0 3px rgba(59, 153, 188, 0.20)',
+        'cactus': '0 4px 16px rgba(109, 180, 154, 0.24)',
       },
       letterSpacing: {
-        tight: '-0.16px',
+        tight: '-0.01em',
       }
     },
   },

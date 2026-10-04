@@ -75,7 +75,7 @@ export const LoveNotes = () => {
     <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto">
       {/* Header */}
       <div className="text-center max-w-2xl mx-auto mb-10">
-        <h1 className="text-3xl font-bold text-brand tracking-tight flex items-center justify-center gap-3 mb-3">
+        <h1 className="mb-3 flex items-center justify-center gap-3 font-display text-4xl font-semibold text-brand-house">
           <Flame className="w-8 h-8 text-gold" />
           Giữ lửa yêu thương
         </h1>
@@ -129,7 +129,7 @@ export const LoveNotes = () => {
       {/* Automatic two-person streak status */}
       <Card className="bg-white shadow-card border-none py-7 px-5">
         <div className="mb-5 text-center">
-          <h2 className="text-xl font-bold text-text-main">Giữ lửa hôm nay</h2>
+          <h2 className="section-title text-xl text-text-main">Giữ lửa hôm nay</h2>
           <p className="mt-1 text-sm text-text-soft">
             Chuỗi được tích tự động sau khi cả hai đều có hoạt động.
           </p>
@@ -188,7 +188,7 @@ export const LoveNotes = () => {
         {/* Write Note Form */}
         <Card className="bg-white shadow-card border-none sticky top-24">
           <form onSubmit={handleSubmitNote} className="space-y-4">
-            <h2 className="font-bold text-lg text-brand flex items-center gap-2 mb-4 border-b border-canvas-cool pb-4">
+            <h2 className="section-title mb-4 flex items-center gap-2 border-b border-canvas-cool pb-4 text-lg text-brand-house">
               <Heart className="w-5 h-5" />
               Lời nhắn nhỏ hôm nay
             </h2>

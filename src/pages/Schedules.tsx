@@ -225,7 +225,7 @@ export const Schedules = () => {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-text-main flex items-center gap-3">
+          <h1 className="flex items-center gap-3 font-display text-4xl font-semibold text-brand-house">
             <CalendarHeart className="w-8 h-8 text-brand-accent" />
             Lịch trình
           </h1>
@@ -319,7 +319,7 @@ export const Schedules = () => {
               <X className="w-5 h-5" />
             </button>
             <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-              <h2 className="font-bold text-xl text-text-main border-b border-canvas-cool pb-4">
+              <h2 className="section-title border-b border-canvas-cool pb-4 text-xl text-text-main">
                 {editingId ? 'Chỉnh sửa sự kiện' : 'Tạo lịch hẹn mới'}
               </h2>
             

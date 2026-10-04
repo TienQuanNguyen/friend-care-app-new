@@ -71,7 +71,7 @@ export const Memories = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-brand tracking-tight flex items-center gap-3">
+        <h1 className="flex items-center gap-3 font-display text-4xl font-semibold text-brand-house">
           <ImageIcon className="text-brand-accent" />
           Album kỷ niệm
         </h1>
@@ -83,7 +83,7 @@ export const Memories = () => {
       {isAdding && (
         <Card className="bg-canvas-cool border-none">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <h2 className="font-bold text-lg mb-4 text-brand">Lưu giữ khoảnh khắc</h2>
+            <h2 className="section-title mb-4 text-lg text-brand-house">Lưu giữ khoảnh khắc</h2>
             <div className="grid md:grid-cols-2 gap-4">
               <Input label="Tên kỷ niệm *" value={title} onChange={e => setTitle(e.target.value)} required />
               <div className="relative">

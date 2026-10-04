@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, Variants, AnimatePresence } from 'framer-motion';
 import { Card } from '../components/ui/Card';
 import { useCareSpace } from '../contexts/CareSpaceContext';
-import { Smile, Calendar as CalendarIcon, Heart, Users, Flame, Utensils, Image as ImageIcon, Sparkles, X, RefreshCw, Disc, Disc3, Plus, ExternalLink, Music, Trash2, MoreHorizontal } from 'lucide-react';
+import { Smile, Calendar as CalendarIcon, Heart, Users, Flame, Utensils, Image as ImageIcon, Sparkles, X, RefreshCw, Disc, Disc3, Plus, ExternalLink, Music, Trash2, MoreHorizontal, Waves } from 'lucide-react';
 import { moodService } from '../services/moodService';
 import { scheduleService } from '../services/scheduleService';
 import { foodService } from '../services/foodService';
@@ -87,10 +87,10 @@ const DAILY_MESSAGES = [
 
 export function SpinningVinylIcon() {
   return (
-    <div className="h-[42px] w-[42px] shrink-0 rounded-full bg-emerald-50 flex items-center justify-center">
+    <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-brand-light">
       <div className="vinyl-spin relative flex items-center justify-center">
-        <Disc3 className="h-5 w-5 text-emerald-700" strokeWidth={2.2} />
-        <span className="absolute h-1.5 w-1.5 rounded-full bg-emerald-700/70" />
+        <Disc3 className="h-5 w-5 text-brand" strokeWidth={2.2} />
+        <span className="absolute h-1.5 w-1.5 rounded-full bg-coral" />
       </div>
     </div>
   );
@@ -536,43 +536,64 @@ export const Dashboard = () => {
   const activeMemory = memories.find(m => m.id === activeMemoryId) || memories[0];
 
   return (
-    <motion.div className="space-y-6 max-w-5xl mx-auto" variants={stagger} initial="initial" animate="animate">
-      {/* Header */}
-      <motion.section className="text-center mb-8 flex flex-col items-center justify-center" variants={fadeUp}>
-        {/* Streak Badge */}
-        <div className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1 bg-amber-50/90 border border-amber-200/80 rounded-pill text-xs font-bold text-amber-900 shadow-sm mb-3 transition-transform hover:scale-105 select-none">
-          <Flame className="w-4 h-4 text-orange-500 fill-orange-400 shrink-0" />
-          <span>{streakLoading ? '–' : `${currentStreak} ngày`}</span>
-        </div>
+    <motion.div className="mx-auto max-w-6xl space-y-6" variants={stagger} initial="initial" animate="animate">
+      {/* Ocean hero */}
+      <motion.section
+        className="relative overflow-hidden rounded-[32px] border border-white/80 bg-gradient-to-br from-white/90 via-[#eefaff]/90 to-brand-light/75 p-6 shadow-card md:rounded-[40px] md:p-9"
+        variants={fadeUp}
+      >
+        <div aria-hidden="true" className="absolute -right-16 -top-24 h-72 w-72 rounded-full border-[42px] border-white/35" />
+        <div aria-hidden="true" className="absolute -bottom-20 right-28 h-48 w-48 rounded-full bg-coral-soft/50 blur-2xl" />
+        <Waves aria-hidden="true" className="absolute -bottom-5 -left-3 h-24 w-72 text-brand/10" strokeWidth={0.8} />
 
-        <h1 className="text-3xl font-bold text-brand tracking-tight mb-2">{getGreeting()}</h1>
-        <p className="text-text-soft text-sm">
-          Chào mừng đến với <span className="font-semibold text-brand">{careSpace?.name || 'Friend Care'}</span>. Hôm nay hai bạn cảm thấy thế nào?
-        </p>
-      </motion.section>
+        <div className="relative grid items-end gap-8 lg:grid-cols-[1fr_auto]">
+          <div>
+            <div className="mb-5 flex flex-wrap items-center gap-2.5">
+              <span className="ui-kicker inline-flex items-center gap-2 rounded-full bg-brand-house px-3.5 py-2 text-white shadow-frap-base">
+                <Waves className="h-3.5 w-3.5 text-[#8ee4f2]" /> Không gian của hai bạn
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-coral/25 bg-coral-soft/70 px-3 py-2 text-[11px] font-bold text-[#9b4f43]">
+                <Flame className="h-3.5 w-3.5 fill-coral text-coral" />
+                {streakLoading ? 'Đang đếm...' : `${currentStreak} ngày bên nhau`}
+              </span>
+            </div>
 
-      {/* Members */}
-      <motion.section className="flex flex-wrap justify-center gap-4 mb-6" variants={fadeUp}>
-        {profiles.map(p => (
-          <div key={p.id} className="flex flex-col items-center justify-center bg-white shadow-card rounded-3xl w-24 h-24 border border-brand-light">
-            <div className="text-3xl mb-1">{p.avatar_emoji}</div>
-            <div className="text-[11px] font-bold text-text-main uppercase tracking-wider">{p.display_name}</div>
+            <h1 className="display-title max-w-2xl text-[2.65rem] leading-[0.98] text-brand-house sm:text-5xl md:text-6xl">
+              {getGreeting()}
+            </h1>
+            <p className="body-copy mt-4 max-w-xl text-sm text-text-soft md:text-[15px]">
+              Một góc nhỏ để giữ lại cảm xúc, những cuộc hẹn và mọi điều dễ thương của <span className="font-bold text-brand">{careSpace?.name || 'Friend Care'}</span>.
+            </p>
           </div>
-        ))}
-        <div className="flex flex-col items-center justify-center bg-transparent border-2 border-dashed border-brand-light rounded-3xl w-24 h-24 hover:bg-brand-light/20 cursor-pointer transition-colors group">
-          <Users className="w-6 h-6 text-brand mb-1 opacity-50 group-hover:opacity-100 transition-opacity" />
-          <div className="text-[10px] font-bold text-text-soft uppercase tracking-wider">Mã: {careSpace?.invite_code}</div>
+
+          <div className="min-w-[240px] rounded-[26px] border border-white/90 bg-white/60 p-4 backdrop-blur-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="ui-kicker text-text-muted">Ở trong không gian</span>
+              <Heart className="h-4 w-4 fill-coral text-coral" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {profiles.map(p => (
+                <div key={p.id} className="flex items-center gap-2 rounded-full border border-brand-light bg-white/85 py-1.5 pl-1.5 pr-3 shadow-sm">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-light text-lg">{p.avatar_emoji}</span>
+                  <span className="max-w-[92px] truncate text-xs font-bold text-brand-house">{p.display_name}</span>
+                </div>
+              ))}
+              <div className="flex items-center gap-2 rounded-full border border-dashed border-brand/30 bg-brand-light/35 px-3 py-2 text-xs font-bold text-brand">
+                <Users className="h-3.5 w-3.5" /> {careSpace?.invite_code || 'Mã mời'}
+              </div>
+            </div>
+          </div>
         </div>
       </motion.section>
 
-      {/* AI Advice Card — Green Accent */}
+      {/* Daily note */}
       <motion.div variants={fadeUp}>
         <Card
           animate={false}
-          className="bg-brand-house text-white border-none shadow-frap-ambient relative overflow-hidden"
+          className="relative overflow-hidden border-none bg-gradient-to-r from-brand-house via-brand-uplift to-brand text-white shadow-frap-ambient"
         >
-          <div className="absolute -right-6 -bottom-6 opacity-10">
-            <Heart className="w-36 h-36" />
+          <div className="absolute -right-8 -bottom-10 opacity-10">
+            <Waves className="h-32 w-64" strokeWidth={1} />
           </div>
           <div className="absolute -left-4 -top-4 opacity-10">
             <Sparkles className="w-24 h-24" />
@@ -583,7 +604,7 @@ export const Dashboard = () => {
             </div>
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
-                <h3 className="text-lg font-bold tracking-wide text-brand-light">Lời nhắn hôm nay</h3>
+                <h3 className="font-display text-xl font-semibold text-white">Lời nhắn theo con nước</h3>
                 <button
                   onClick={() => pickRandomMessage()}
                   className="p-1.5 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center text-brand-light hover:text-white"
@@ -602,12 +623,12 @@ export const Dashboard = () => {
 
       {/* Bài nhạc hôm nay */}
       <motion.div variants={fadeUp}>
-        <div className="bg-white rounded-[24px] md:rounded-[32px] p-5 md:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)] relative overflow-hidden mb-6">
+        <div className="relative mb-6 overflow-hidden rounded-[26px] border border-white/90 bg-white/80 p-5 shadow-card backdrop-blur-xl md:rounded-[32px] md:p-6">
           {/* Card Header */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
             <div className="flex items-center gap-3">
               <SpinningVinylIcon />
-              <h2 className="text-[17px] md:text-[19px] font-extrabold text-[#111827]">
+              <h2 className="section-title text-[17px] text-brand-house md:text-[19px]">
                 Bài nhạc hôm nay
               </h2>
             </div>
@@ -629,7 +650,7 @@ export const Dashboard = () => {
               )}
               <button
                 onClick={() => setShowAddForm(!showAddForm)}
-                className="bg-[#e6f4ea] hover:bg-[#d0ebd6] text-[#1e7e34] font-bold px-3 md:px-4 py-1.5 md:py-2 rounded-full text-[13px] md:text-sm transition-colors shadow-sm whitespace-nowrap"
+                className="whitespace-nowrap rounded-full bg-brand-light px-3 py-1.5 text-[13px] font-bold text-brand transition-colors hover:bg-[#c4eaf6] md:px-4 md:py-2 md:text-sm"
               >
                 + Thêm bài nhạc
               </button>
@@ -794,11 +815,11 @@ export const Dashboard = () => {
         <motion.div variants={fadeUp}>
           <Card
             animate={false}
-            className="bg-canvas-cool border border-canvas-dark shadow-card hover:shadow-card-hover transition-shadow relative"
+            className="relative border border-white/90 bg-white/70 shadow-card transition-shadow hover:shadow-card-hover"
           >
             {showConfetti && <MiniConfetti onComplete={() => setShowConfetti(false)} />}
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-brand-house flex items-center gap-2">
+              <h2 className="section-title flex items-center gap-2 text-lg text-brand-house">
                 <Smile className="w-5 h-5 text-brand-accent" /> Check-in hôm nay
               </h2>
             </div>
@@ -849,10 +870,10 @@ export const Dashboard = () => {
         <motion.div variants={fadeUp}>
           <Card
             animate={false}
-            className="bg-brand-light/30 border border-brand-light shadow-card hover:shadow-card-hover transition-shadow cursor-pointer"
+            className="cursor-pointer border border-brand-light/70 bg-gradient-to-br from-brand-light/75 to-white/70 shadow-card transition-shadow hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-brand flex items-center gap-2">
+              <h2 className="section-title flex items-center gap-2 text-lg text-brand">
                 <Smile className="w-5 h-5" /> Cảm xúc gần đây
               </h2>
             </div>
@@ -880,10 +901,10 @@ export const Dashboard = () => {
         <motion.div variants={fadeUp}>
           <Card
             animate={false}
-            className="bg-canvas-cool border border-canvas-dark shadow-card hover:shadow-card-hover transition-shadow cursor-pointer"
+            className="cursor-pointer border border-white/90 bg-white/70 shadow-card transition-shadow hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-text-main flex items-center gap-2">
+              <h2 className="section-title flex items-center gap-2 text-lg text-text-main">
                 <CalendarIcon className="w-5 h-5 text-brand" /> Sắp diễn ra
               </h2>
             </div>
@@ -915,10 +936,10 @@ export const Dashboard = () => {
         <motion.div variants={fadeUp}>
           <Card
             animate={false}
-            className="bg-brand-light/20 border border-brand-light shadow-card hover:shadow-card-hover transition-shadow cursor-pointer"
+            className="cursor-pointer border border-coral/15 bg-gradient-to-br from-coral-soft/45 to-white/75 shadow-card transition-shadow hover:shadow-card-hover"
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-brand-house flex items-center gap-2">
+              <h2 className="section-title flex items-center gap-2 text-lg text-brand-house">
                 <Utensils className="w-5 h-5 text-brand" /> Món ngon chờ thử
               </h2>
             </div>

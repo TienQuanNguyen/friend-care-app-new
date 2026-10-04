@@ -88,7 +88,7 @@ export const AnnouncementModal: React.FC = () => {
               <div className="w-14 h-14 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-3">
                 <Megaphone className="w-7 h-7 text-brand-accent" />
               </div>
-              <h2 className="text-xl font-bold text-brand">
+              <h2 className="section-title text-xl text-brand-house">
                 {announcement.title || 'Thông báo'}
               </h2>
             </div>

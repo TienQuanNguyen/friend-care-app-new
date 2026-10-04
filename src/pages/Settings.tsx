@@ -166,10 +166,10 @@ export const Settings = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold text-brand tracking-tight">Cài đặt</h1>
+      <h1 className="font-display text-4xl font-semibold text-brand-house">Cài đặt</h1>
 
       <Card>
-        <h2 className="text-xl font-bold text-brand mb-4">Thông tin không gian</h2>
+        <h2 className="section-title mb-4 text-xl text-brand-house">Thông tin không gian</h2>
         <div className="space-y-4">
           <div className="flex justify-between items-center py-3 border-b border-canvas-ceramic">
             <span className="text-text-soft font-semibold">Tên không gian</span>
@@ -190,7 +190,7 @@ export const Settings = () => {
       </Card>
 
       <Card>
-        <h2 className="text-xl font-bold text-brand mb-4 flex items-center gap-2">
+        <h2 className="section-title mb-4 flex items-center gap-2 text-xl text-brand-house">
           <Users className="w-5 h-5" />
           Thành viên
         </h2>
@@ -212,7 +212,7 @@ export const Settings = () => {
       </Card>
 
       <Card>
-        <h2 className="text-xl font-bold text-brand mb-4 flex items-center gap-2">
+        <h2 className="section-title mb-4 flex items-center gap-2 text-xl text-brand-house">
           <UserCircle className="w-5 h-5" />
           Tên hiển thị
         </h2>
@@ -238,7 +238,7 @@ export const Settings = () => {
       </Card>
 
       <Card>
-        <h2 className="text-xl font-bold text-brand mb-4 flex items-center gap-2">
+        <h2 className="section-title mb-4 flex items-center gap-2 text-xl text-brand-house">
           <Smile className="w-5 h-5" />
           Ảnh đại diện
         </h2>
@@ -272,7 +272,7 @@ export const Settings = () => {
 
       {/* === WEB PUSH NOTIFICATIONS CARD === */}
       <Card>
-        <h2 className="text-xl font-bold text-brand mb-2 flex items-center gap-2">
+        <h2 className="section-title mb-2 flex items-center gap-2 text-xl text-brand-house">
           <Bell className="w-5 h-5" />
           Thông báo tin nhắn
         </h2>
@@ -361,7 +361,7 @@ export const Settings = () => {
       {/* === ADMIN SECTION === */}
       {isAdmin && (
         <Card>
-          <h2 className="text-xl font-bold text-brand mb-2 flex items-center gap-2">
+          <h2 className="section-title mb-2 flex items-center gap-2 text-xl text-brand-house">
             <Megaphone className="w-5 h-5" />
             Thông báo hệ thống
           </h2>
@@ -431,7 +431,7 @@ export const Settings = () => {
       {isAdmin && (
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-brand flex items-center gap-2">
+            <h2 className="section-title flex items-center gap-2 text-xl text-brand-house">
               <History className="w-5 h-5" />
               Nhật ký hoạt động của đối phương
             </h2>
@@ -628,7 +628,7 @@ export const Settings = () => {
       )}
 
       <Card>
-        <h2 className="text-xl font-bold text-semantic-destructive mb-4">Tài khoản</h2>
+        <h2 className="section-title mb-4 text-xl text-semantic-destructive">Tài khoản</h2>
         <div className="space-y-4">
           <div className="flex justify-between items-center py-3 border-b border-canvas-ceramic">
             <span className="text-text-soft font-semibold">Email</span>

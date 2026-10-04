@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,16 +6,43 @@
 
 @layer base {
   body {
-    background-color: #F8FAFC;
-    color: #0F172A;
-    font-family: 'Be Vietnam Pro', Inter, system-ui, sans-serif;
+    margin: 0;
+    background-color: #EFF8FC;
+    background-image:
+      radial-gradient(ellipse at 10% 0%, rgba(163, 216, 235, 0.38) 0%, transparent 52%),
+      radial-gradient(ellipse at 92% 96%, rgba(160, 220, 200, 0.28) 0%, transparent 44%),
+      radial-gradient(ellipse at 55% 50%, rgba(240, 250, 255, 0.60) 0%, transparent 70%);
+    color: #0D3547;
+    font-family: 'Nunito', Inter, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    line-height: 1.6;
     min-height: 100vh;
   }
 
   * {
     box-sizing: border-box;
+  }
+
+  ::selection {
+    background: #A8D9EE;
+    color: #0D3547;
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    font: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.01em;
+    line-height: 1.25;
   }
 }
 
@@ -24,43 +51,126 @@
     border-radius: 50px;
   }
   .rounded-card {
-    border-radius: 16px;
+    border-radius: 20px;
   }
   .rounded-card-sm {
-    border-radius: 12px;
+    border-radius: 14px;
   }
+
+  .display-title {
+    font-family: 'Lora', Georgia, serif;
+    font-weight: 600;
+    font-style: italic;
+    font-optical-sizing: auto;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+  .section-title {
+    font-family: 'Nunito', Inter, system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+  }
+  .ui-kicker {
+    font-family: 'Nunito', Inter, system-ui, sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+  .body-copy {
+    font-family: 'Nunito', Inter, system-ui, sans-serif;
+    font-weight: 400;
+    letter-spacing: 0em;
+    line-height: 1.7;
+  }
+
+  /* Glass panel – subtle coastal glass */
+  .tide-panel {
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(203, 233, 244, 0.70);
+    box-shadow: 0 4px 24px -6px rgba(13, 53, 71, 0.10);
+    backdrop-filter: blur(18px);
+  }
+
+  /* Subtle wave dots pattern */
+  .ocean-dots {
+    background-image: radial-gradient(rgba(59, 153, 188, 0.10) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+
+  /* Cactus dot pattern */
+  .cactus-dots {
+    background-image: radial-gradient(rgba(109, 180, 154, 0.12) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
   .frap-button {
     @apply transition-transform active:scale-95;
   }
-  /* Fade-in-up animation for cards */
+
+  /* Fade-in-up animation */
   @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
   .animate-fade-up {
-    animation: fadeInUp 0.35s ease-out both;
+    animation: fadeInUp 0.30s ease-out both;
   }
 
+  /* Gentle sway for cactus/decorative elements */
+  @keyframes sway {
+    0%, 100% { transform: rotate(-1deg); }
+    50%       { transform: rotate(1.5deg); }
+  }
+  .animate-sway {
+    animation: sway 3.5s ease-in-out infinite;
+    transform-origin: bottom center;
+  }
+
+  /* Vinyl/rotation */
   .vinyl-spin {
     animation: vinyl-spin 5s linear infinite;
   }
   @keyframes vinyl-spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
   }
+
   @media (prefers-reduced-motion: reduce) {
-    .vinyl-spin {
+    .vinyl-spin, .animate-fade-up, .animate-sway {
       animation: none;
     }
   }
+
+  /* Wave shimmer */
+  @keyframes wave-shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+  .wave-shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(203, 233, 244, 0) 0%,
+      rgba(203, 233, 244, 0.6) 50%,
+      rgba(203, 233, 244, 0) 100%
+    );
+    background-size: 200% auto;
+    animation: wave-shimmer 2.5s linear infinite;
+  }
+}
+
+/* Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 153, 188, 0.28) transparent;
+}
+*::-webkit-scrollbar { width: 5px; height: 5px; }
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(59, 153, 188, 0.28);
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 153, 188, 0.45);
 }

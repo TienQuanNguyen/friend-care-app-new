@@ -43,7 +43,7 @@ export const UpdatePassword = () => {
     <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-brand tracking-tight">Cập nhật mật khẩu</h1>
+          <h1 className="font-display text-3xl font-semibold text-brand-house">Cập nhật mật khẩu</h1>
           <p className="text-text-soft mt-2">Vui lòng nhập mật khẩu mới của bạn</p>
         </div>
 
