@@ -45,7 +45,9 @@ export const Auth = () => {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-canvas p-4 sm:p-8">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-canvas p-4 sm:p-8"
+      style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+    >
       <div aria-hidden="true" className="absolute -left-20 -top-24 h-[28rem] w-[28rem] rounded-full bg-[#A8D9EE]/55 blur-3xl" />
       <div aria-hidden="true" className="absolute -bottom-32 -right-20 h-[30rem] w-[30rem] rounded-full bg-[#A8D5C0]/45 blur-3xl" />
       <div aria-hidden="true" className="absolute right-1/3 top-1/3 h-[18rem] w-[18rem] rounded-full bg-[#EDD9B8]/20 blur-3xl" />

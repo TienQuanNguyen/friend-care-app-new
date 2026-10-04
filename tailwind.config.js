@@ -4,6 +4,9 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  future: {
+    // Enable v4 compat for better mobile support
+  },
   theme: {
     extend: {
       colors: {
@@ -70,7 +73,31 @@ export default {
       },
       letterSpacing: {
         tight: '-0.01em',
-      }
+      },
+      // iOS safe area spacing
+      spacing: {
+        'safe-top':    'env(safe-area-inset-top,    0px)',
+        'safe-bottom': 'env(safe-area-inset-bottom, 0px)',
+        'safe-left':   'env(safe-area-inset-left,   0px)',
+        'safe-right':  'env(safe-area-inset-right,  0px)',
+      },
+      height: {
+        'dvh': '100dvh',
+        'svh': '100svh',
+        'lvh': '100lvh',
+        // MobileNav top bar height + iOS safe area top
+        '13': '3.25rem',
+        '15': '3.75rem',
+        '18': '4.5rem',
+      },
+      minHeight: {
+        'dvh': '100dvh',
+      },
+      width: {
+        '4.5': '1.125rem',
+        '13': '3.25rem',
+        '15': '3.75rem',
+      },
     },
   },
   plugins: [],

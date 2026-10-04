@@ -1,9 +1,29 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Apple Touch Icon for Add-to-Home-Screen on iOS -->
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Viewport: viewport-fit=cover là KEY để safe-area-inset hoạt động trên iOS notch/Dynamic Island -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- iOS PWA / Add to Home Screen -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Friend Care" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Theme color for browser chrome (Android Chrome + Safari iOS) -->
+    <meta name="theme-color" content="#EFF8FC" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#155F7A" media="(prefers-color-scheme: dark)" />
+
+    <!-- SEO / description -->
+    <meta name="description" content="Không gian riêng cho hai người — đủ yên để lắng nghe, đủ gần để quan tâm." />
+
     <title>Friend Care</title>
   </head>
   <body>

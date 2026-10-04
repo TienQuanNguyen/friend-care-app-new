@@ -5,13 +5,35 @@
 @tailwind utilities;
 
 @layer base {
+  /*
+   * ─── SAFE AREA VARIABLES ────────────────────────────────────────────────────
+   * iOS notch / Dynamic Island / home indicator support.
+   * Requires viewport-fit=cover in <meta name="viewport">.
+   */
+  :root {
+    --sat: env(safe-area-inset-top,    0px);
+    --sar: env(safe-area-inset-right,  0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left,   0px);
+  }
+
+  html {
+    /* Prevents iOS bounce scroll on body while keeping inner scroll working */
+    overscroll-behavior: none;
+    /* Use dynamic viewport height – prevents iOS address bar from causing layout jumps */
+    height: 100%;
+  }
+
   body {
     margin: 0;
+    min-height: 100%;
+    /* dvh falls back to vh on older browsers */
+    min-height: 100dvh;
     background-color: #EFF8FC;
     background-image:
-      radial-gradient(ellipse at 10% 0%, rgba(163, 216, 235, 0.38) 0%, transparent 52%),
-      radial-gradient(ellipse at 92% 96%, rgba(160, 220, 200, 0.28) 0%, transparent 44%),
-      radial-gradient(ellipse at 55% 50%, rgba(240, 250, 255, 0.60) 0%, transparent 70%);
+      radial-gradient(ellipse at 10% 0%,   rgba(163, 216, 235, 0.38) 0%, transparent 52%),
+      radial-gradient(ellipse at 92% 96%,  rgba(160, 220, 200, 0.28) 0%, transparent 44%),
+      radial-gradient(ellipse at 55% 50%,  rgba(240, 250, 255, 0.60) 0%, transparent 70%);
     color: #0D3547;
     font-family: 'Nunito', Inter, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -19,7 +41,16 @@
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     line-height: 1.6;
-    min-height: 100vh;
+
+    /* iOS: prevent text size adjustment when rotating */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  #root {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
   }
 
   * {
@@ -37,7 +68,18 @@
   textarea,
   select {
     font: inherit;
+    /* Remove iOS blue tap highlight flash */
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /*
+   * iOS Safari: inputs with font-size < 16px trigger auto-zoom.
+   * Force 16px on all inputs to prevent this.
+   */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -47,16 +89,25 @@
 }
 
 @layer utilities {
-  .rounded-pill {
-    border-radius: 50px;
-  }
-  .rounded-card {
-    border-radius: 20px;
-  }
-  .rounded-card-sm {
-    border-radius: 14px;
-  }
+  .rounded-pill   { border-radius: 50px; }
+  .rounded-card   { border-radius: 20px; }
+  .rounded-card-sm { border-radius: 14px; }
 
+  /* ─── Safe-area padding helpers ─── */
+  .pt-safe { padding-top:    env(safe-area-inset-top,    0px); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .pl-safe { padding-left:   env(safe-area-inset-left,   0px); }
+  .pr-safe { padding-right:  env(safe-area-inset-right,  0px); }
+
+  /* Combined: add safe-area ON TOP of existing padding */
+  .pt-safe-offset { padding-top:    calc(0.75rem + env(safe-area-inset-top,    0px)); }
+  .pb-safe-offset { padding-bottom: calc(1.5rem  + env(safe-area-inset-bottom, 0px)); }
+
+  /* dvh helper (100dvh = actual visible viewport on iOS) */
+  .h-dvh  { height: 100dvh; }
+  .min-h-dvh { min-height: 100dvh; }
+
+  /* ─── Typography helpers ─── */
   .display-title {
     font-family: 'Lora', Georgia, serif;
     font-weight: 600;
@@ -86,40 +137,33 @@
     line-height: 1.7;
   }
 
-  /* Glass panel – subtle coastal glass */
+  /* Glass panel – needs -webkit- prefix for older iOS Safari */
   .tide-panel {
     background: rgba(255, 255, 255, 0.72);
     border: 1px solid rgba(203, 233, 244, 0.70);
     box-shadow: 0 4px 24px -6px rgba(13, 53, 71, 0.10);
+    -webkit-backdrop-filter: blur(18px);
     backdrop-filter: blur(18px);
   }
 
-  /* Subtle wave dots pattern */
   .ocean-dots {
     background-image: radial-gradient(rgba(59, 153, 188, 0.10) 1px, transparent 1px);
     background-size: 18px 18px;
   }
-
-  /* Cactus dot pattern */
   .cactus-dots {
     background-image: radial-gradient(rgba(109, 180, 154, 0.12) 1px, transparent 1px);
     background-size: 20px 20px;
   }
 
-  .frap-button {
-    @apply transition-transform active:scale-95;
-  }
+  .frap-button { @apply transition-transform active:scale-95; }
 
-  /* Fade-in-up animation */
+  /* Animations */
   @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(10px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  .animate-fade-up {
-    animation: fadeInUp 0.30s ease-out both;
-  }
+  .animate-fade-up { animation: fadeInUp 0.30s ease-out both; }
 
-  /* Gentle sway for cactus/decorative elements */
   @keyframes sway {
     0%, 100% { transform: rotate(-1deg); }
     50%       { transform: rotate(1.5deg); }
@@ -129,22 +173,16 @@
     transform-origin: bottom center;
   }
 
-  /* Vinyl/rotation */
-  .vinyl-spin {
-    animation: vinyl-spin 5s linear infinite;
-  }
+  .vinyl-spin { animation: vinyl-spin 5s linear infinite; }
   @keyframes vinyl-spin {
     from { transform: rotate(0deg); }
     to   { transform: rotate(360deg); }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .vinyl-spin, .animate-fade-up, .animate-sway {
-      animation: none;
-    }
+    .vinyl-spin, .animate-fade-up, .animate-sway { animation: none; }
   }
 
-  /* Wave shimmer */
   @keyframes wave-shimmer {
     0%   { background-position: -200% center; }
     100% { background-position: 200% center; }
@@ -161,16 +199,24 @@
   }
 }
 
-/* Scrollbar */
+/* ─── Backdrop-filter: add -webkit- prefix everywhere ─── */
+[class*="backdrop-blur"] {
+  -webkit-backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
+  backdrop-filter:         var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
+}
+
+/* ─── Scrollbar ─── */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(59, 153, 188, 0.28) transparent;
 }
-*::-webkit-scrollbar { width: 5px; height: 5px; }
-*::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(59, 153, 188, 0.28);
-}
-*::-webkit-scrollbar-thumb:hover {
-  background: rgba(59, 153, 188, 0.45);
+*::-webkit-scrollbar         { width: 5px; height: 5px; }
+*::-webkit-scrollbar-thumb   { border-radius: 999px; background: rgba(59, 153, 188, 0.28); }
+*::-webkit-scrollbar-thumb:hover { background: rgba(59, 153, 188, 0.45); }
+
+/* iOS: momentum scrolling for overflow-y-auto containers */
+.overflow-y-auto,
+.overflow-y-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }

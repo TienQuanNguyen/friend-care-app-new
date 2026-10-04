@@ -54,7 +54,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               setTimeout(() => setIsFocused(false), 0);
               props.onBlur?.(e);
             }}
-            className="w-full bg-transparent px-3.5 pb-2 pt-3 outline-none text-[15px] text-text-main h-11 font-medium"
+            className="w-full bg-transparent px-3.5 pb-2 pt-3 outline-none text-base text-text-main h-11 font-medium"
             {...props}
           />
         </div>

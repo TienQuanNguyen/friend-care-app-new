@@ -1,0 +1,19 @@
+{
+  "name": "Friend Care",
+  "short_name": "Friend Care",
+  "description": "Không gian riêng cho hai người — đủ yên để lắng nghe, đủ gần để quan tâm.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#EFF8FC",
+  "theme_color": "#155F7A",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "social"]
+}

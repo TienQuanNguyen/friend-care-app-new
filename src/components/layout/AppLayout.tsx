@@ -39,7 +39,7 @@ export const AppLayout = () => {
 
   if (authLoading || spaceLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-canvas">
+      <div className="flex items-center justify-center min-h-dvh bg-canvas">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
       </div>
     );
@@ -60,7 +60,8 @@ export const AppLayout = () => {
   const isFullHeight = FULL_HEIGHT_ROUTES.some((r) => location.pathname.startsWith(r));
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-canvas">
+    // h-dvh = actual visible viewport height on iOS (excludes address bar)
+    <div className="relative flex h-dvh overflow-hidden bg-canvas">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         {/* Ocean blue glow – top left */}
         <div className="absolute -left-20 -top-32 h-[32rem] w-[32rem] rounded-full bg-[#A8D9EE]/45 blur-3xl" />
@@ -72,14 +73,29 @@ export const AppLayout = () => {
       </div>
       <Sidebar />
       {!isFullHeight && <MobileNav />}
-      <main className={cn("z-10 flex-1 overflow-hidden relative flex flex-col", !isFullHeight && "pt-20 md:pt-0")}>
+      <main
+        className={cn('z-10 flex-1 overflow-hidden relative flex flex-col')}
+        style={
+          !isFullHeight
+            ? {
+                // Mobile: top padding = nav bar height (3.25rem) + gap (0.75rem each side = 1.5rem total) + safe-area-top
+                // Desktop (md+): no top offset needed (sidebar is side-mounted)
+                paddingTop: 'calc(3.25rem + 1.5rem + env(safe-area-inset-top, 0px))',
+              }
+            : undefined
+        }
+      >
+        {/* Override for md+ screens: no top padding */}
+        <style>{`@media (min-width: 768px) { main { padding-top: 0 !important; } }`}</style>
         {isFullHeight ? (
           // Full-height routes: no wrapper padding, no inner scroll
           <div className="flex-1 flex flex-col overflow-hidden">
             <Outlet />
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto pb-24 md:pb-0">
+          // pt-20 accounts for the fixed MobileNav top bar
+          // pb-safe-offset adds padding for iOS home indicator at bottom
+          <div className="flex-1 overflow-y-auto pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:pb-0">
             <div className="mx-auto max-w-6xl p-4 md:px-8 md:py-10 xl:px-12">
               <Outlet />
             </div>

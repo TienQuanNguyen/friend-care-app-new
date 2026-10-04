@@ -118,6 +118,7 @@ export const ChatRoom: React.FC = () => {
     }
 
     if (!window.visualViewport) {
+      // dvh = dynamic viewport height, correctly sized on iOS even with address bar
       setViewportHeight('100dvh');
       return;
     }
@@ -424,7 +425,11 @@ export const ChatRoom: React.FC = () => {
 
   return (
     <div
-      style={{ height: viewportHeight }}
+      style={{
+        height: viewportHeight,
+        // Ensure the container never goes under iOS home indicator
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
       className="flex flex-col min-h-0 bg-canvas overflow-hidden w-full relative"
     >
       {/* Floating Back Button for Mobile (Since header is hidden) */}
