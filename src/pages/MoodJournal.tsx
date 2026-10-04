@@ -124,6 +124,13 @@ const needsExpansion = (text: string | null | undefined, maxCharacters: number, 
   return text.length > maxCharacters || text.split(/\r?\n/).length > maxLines;
 };
 
+const getPinnedNotePreview = (text: string, maxCharacters = 64) => {
+  const normalizedText = text.replace(/\s+/g, ' ').trim();
+  if (normalizedText.length <= maxCharacters) return normalizedText;
+
+  return `${normalizedText.slice(0, maxCharacters).trimEnd()}…`;
+};
+
 export const MoodJournal = () => {
   const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
@@ -226,11 +233,12 @@ export const MoodJournal = () => {
   };
 
   const scrollToEntry = (entryId: string) => {
-    // Expand list if the entry is hidden behind pagination
-    const entryIndex = processedEntries.findIndex(e => e.id === entryId);
-    if (entryIndex >= 6 && !showAllEntries) {
-      setShowAllEntries(true);
-    }
+    // Make sure the target card is rendered even when another view/filter is active.
+    setViewMode('card');
+    setMonthFilter('all');
+    setSearchQuery('');
+    setShowAllEntries(true);
+
     // Also auto-expand the content of target entry
     setExpandedEntries(prev => {
       const next = new Set(prev);
@@ -246,7 +254,7 @@ export const MoodJournal = () => {
           setHighlightedEntryId(entryId);
           setTimeout(() => setHighlightedEntryId(null), 2000);
         }
-      }, 100);
+      }, 180);
     });
   };
 
@@ -836,27 +844,35 @@ export const MoodJournal = () => {
                 return (
                   <div
                     key={`pinned-${entry.id}`}
-                    className="group flex items-center gap-3 bg-gradient-to-r from-amber-50/70 to-white border border-amber-200/50 rounded-xl px-3.5 py-2.5 cursor-pointer hover:shadow-md hover:border-amber-300/70 transition-all"
+                    className="group flex h-[76px] min-w-0 cursor-pointer items-center gap-3 overflow-hidden rounded-xl border border-amber-200/50 bg-gradient-to-r from-amber-50/70 to-white px-3.5 py-2.5 transition-all hover:border-amber-300/70 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
                     onClick={() => scrollToEntry(entry.id)}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter') scrollToEntry(entry.id); }}
+                    aria-label={`Mở ghi chép ${entry.mood} ngày ${formatEntryDateTime(entry)}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        scrollToEntry(entry.id);
+                      }
+                    }}
                   >
                     <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center ${style.iconBg} ${style.iconColor}`}>
                       <Icon className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs font-bold ${style.text}`}>{entry.mood}</span>
+                      <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
+                        <span className={`shrink-0 text-xs font-bold ${style.text}`}>{entry.mood}</span>
                         <span className="text-[10px] text-text-soft">•</span>
-                        <span className={`text-[10px] font-bold ${isCurrentUser ? 'text-brand' : 'text-brand-house'}`}>
+                        <span className={`shrink-0 text-[10px] font-bold ${isCurrentUser ? 'text-brand' : 'text-brand-house'}`}>
                           {isCurrentUser ? 'Bạn' : (writerProfile?.display_name || 'Nửa kia')}
                         </span>
                         <span className="text-[10px] text-text-soft">•</span>
-                        <span className="text-[10px] text-text-soft">{formatEntryDateTime(entry)}</span>
+                        <span className="truncate text-[10px] text-text-soft">{formatEntryDateTime(entry)}</span>
                       </div>
                       {entry.note && (
-                        <p className="text-[12px] text-text-soft truncate mt-0.5">{entry.note}</p>
+                        <p className="mt-1 truncate text-[12px] leading-5 text-text-soft">
+                          {getPinnedNotePreview(entry.note)}
+                        </p>
                       )}
                     </div>
                     <button
