@@ -4,7 +4,7 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { useCareSpace } from '../contexts/CareSpaceContext';
-import { moodService } from '../services/moodService';
+import { moodService, MOOD_PRIVACY_REACTION_KEY } from '../services/moodService';
 import { adviceService, type AdviceInput } from '../services/adviceService';
 import { MoodEntry, MoodType } from '../types';
 import { format } from 'date-fns';
@@ -26,6 +26,7 @@ import {
   Search,
   Pin,
   PinOff,
+  Lock,
   X
 } from 'lucide-react';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -131,6 +132,81 @@ const getPinnedNotePreview = (text: string, maxCharacters = 64) => {
   return `${normalizedText.slice(0, maxCharacters).trimEnd()}…`;
 };
 
+const withPrivacyMetadata = (entry: MoodEntry, isPrivate: boolean): MoodEntry => {
+  const reactions = { ...(entry.reactions || {}) };
+  if (isPrivate) reactions[MOOD_PRIVACY_REACTION_KEY] = entry.created_by;
+  else delete reactions[MOOD_PRIVACY_REACTION_KEY];
+
+  return { ...entry, is_private: isPrivate, reactions };
+};
+
+const getVisibleReactionEntries = (reactions?: Record<string, string>) => (
+  Object.entries(reactions || {}).filter(([key]) => key !== MOOD_PRIVACY_REACTION_KEY)
+);
+
+const LockedEntryPlaceholder = () => (
+  <div className="relative min-h-[230px] overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-canvas-cool/90 to-emerald-50/80">
+    <div aria-hidden="true" className="absolute inset-0 select-none space-y-4 p-5 opacity-45 blur-[6px]">
+      <div className="flex items-center gap-3">
+        <div className="h-12 w-12 rounded-full bg-emerald-200" />
+        <div className="space-y-2">
+          <div className="h-4 w-24 rounded-full bg-emerald-200" />
+          <div className="h-3 w-32 rounded-full bg-canvas-dark" />
+        </div>
+      </div>
+      <div className="h-20 rounded-2xl bg-white" />
+      <div className="h-4 w-2/3 rounded-full bg-canvas-dark" />
+    </div>
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/45 px-6 text-center backdrop-blur-[2px]">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-sm ring-1 ring-emerald-200">
+        <Lock className="h-8 w-8 fill-emerald-200" strokeWidth={2.2} />
+      </div>
+      <p className="mt-4 text-base font-bold text-brand-house">Nhật ký riêng tư</p>
+      <p className="mt-1 text-xs text-text-soft">Nội dung này đã được người viết khóa.</p>
+    </div>
+  </div>
+);
+
+const PrivacyToggleButton = ({
+  isPrivate,
+  isPending,
+  canToggle,
+  onClick,
+  className = '',
+}: {
+  isPrivate: boolean;
+  isPending: boolean;
+  canToggle: boolean;
+  onClick: React.MouseEventHandler<HTMLButtonElement>;
+  className?: string;
+}) => {
+  const label = !canToggle
+    ? 'Chỉ người viết mới có thể khóa nhật ký này'
+    : isPrivate
+      ? 'Mở khóa và chia sẻ lại nhật ký'
+      : 'Khóa nhật ký trên giao diện';
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={isPending || !canToggle}
+      aria-label={label}
+      aria-pressed={isPrivate}
+      title={label}
+      className={`rounded-full p-1.5 transition-all ${
+        isPrivate
+          ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-200'
+          : canToggle
+            ? 'bg-canvas-cool text-brand-house ring-1 ring-brand-light/50 hover:bg-brand-light/30 hover:text-brand'
+            : 'cursor-not-allowed bg-gray-50 text-gray-300 ring-1 ring-gray-100'
+      } ${className}`}
+    >
+      <Lock className={`h-4 w-4 ${isPrivate ? 'fill-emerald-200' : ''}`} />
+    </button>
+  );
+};
+
 export const MoodJournal = () => {
   const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
@@ -158,6 +234,7 @@ export const MoodJournal = () => {
   const [retryingEntryId, setRetryingEntryId] = useState<string | null>(null);
   const [generatingAdviceEntryIds, setGeneratingAdviceEntryIds] = useState<Set<string>>(new Set());
   const [activeReactionPickerId, setActiveReactionPickerId] = useState<string | null>(null);
+  const [privacyPendingEntryIds, setPrivacyPendingEntryIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedEntryId, setHighlightedEntryId] = useState<string | null>(null);
 
@@ -199,6 +276,8 @@ export const MoodJournal = () => {
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       result = result.filter((e) => {
+        if (e.is_private && e.created_by !== user?.id) return false;
+
         const noteMatch = e.note?.toLowerCase().includes(q);
         const gratitudeMatch = e.gratitude?.toLowerCase().includes(q);
         const moodMatch = e.mood?.toLowerCase().includes(q);
@@ -217,7 +296,7 @@ export const MoodJournal = () => {
     });
 
     return result;
-  }, [entries, monthFilter, sortOrder, searchQuery]);
+  }, [entries, monthFilter, sortOrder, searchQuery, user?.id]);
 
   const displayedEntries = useMemo(() => {
     return showAllEntries ? processedEntries : processedEntries.slice(0, 6);
@@ -548,6 +627,35 @@ export const MoodJournal = () => {
     }
   };
 
+  const handleTogglePrivacy = async (entryId: string) => {
+    const entry = entries.find(item => item.id === entryId);
+    if (!entry || !user || entry.created_by !== user.id || privacyPendingEntryIds.has(entryId)) return;
+
+    const previousPrivacy = Boolean(entry.is_private);
+    const nextPrivacy = !previousPrivacy;
+
+    setPrivacyPendingEntryIds(current => new Set(current).add(entryId));
+    setEntries(current => current.map(item => (
+      item.id === entryId ? withPrivacyMetadata(item, nextPrivacy) : item
+    )));
+
+    try {
+      await moodService.setPrivacy(entryId, nextPrivacy);
+    } catch (error) {
+      console.error('Failed to update mood entry privacy:', error);
+      setEntries(current => current.map(item => (
+        item.id === entryId ? withPrivacyMetadata(item, previousPrivacy) : item
+      )));
+      window.alert('Không thể đổi trạng thái riêng tư. Vui lòng thử lại.');
+    } finally {
+      setPrivacyPendingEntryIds(current => {
+        const next = new Set(current);
+        next.delete(entryId);
+        return next;
+      });
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 max-w-5xl mx-auto">
       {/* Header */}
@@ -840,6 +948,7 @@ export const MoodJournal = () => {
                 const style = getMoodStyle(entry.mood);
                 const Icon = MOODS_WITH_ICONS.find(m => m.name === entry.mood)?.icon || Smile;
                 const isCurrentUser = entry.created_by === user?.id;
+                const isLockedForViewer = Boolean(entry.is_private) && !isCurrentUser;
                 const writerProfile = getProfile(entry.created_by);
                 return (
                   <div
@@ -848,7 +957,9 @@ export const MoodJournal = () => {
                     onClick={() => scrollToEntry(entry.id)}
                     role="button"
                     tabIndex={0}
-                    aria-label={`Mở ghi chép ${entry.mood} ngày ${formatEntryDateTime(entry)}`}
+                    aria-label={isLockedForViewer
+                      ? `Nhật ký riêng tư ngày ${formatEntryDateTime(entry)}`
+                      : `Mở ghi chép ${entry.mood} ngày ${formatEntryDateTime(entry)}`}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
@@ -856,12 +967,16 @@ export const MoodJournal = () => {
                       }
                     }}
                   >
-                    <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center ${style.iconBg} ${style.iconColor}`}>
-                      <Icon className="w-4 h-4" />
+                    <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center ${
+                      isLockedForViewer ? 'bg-emerald-100 text-emerald-700' : `${style.iconBg} ${style.iconColor}`
+                    }`}>
+                      {isLockedForViewer ? <Lock className="h-4 w-4 fill-emerald-200" /> : <Icon className="w-4 h-4" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
-                        <span className={`shrink-0 text-xs font-bold ${style.text}`}>{entry.mood}</span>
+                        <span className={`shrink-0 text-xs font-bold ${isLockedForViewer ? 'text-emerald-700' : style.text}`}>
+                          {isLockedForViewer ? 'Nhật ký riêng tư' : entry.mood}
+                        </span>
                         <span className="text-[10px] text-text-soft">•</span>
                         <span className={`shrink-0 text-[10px] font-bold ${isCurrentUser ? 'text-brand' : 'text-brand-house'}`}>
                           {isCurrentUser ? 'Bạn' : (writerProfile?.display_name || 'Nửa kia')}
@@ -869,20 +984,35 @@ export const MoodJournal = () => {
                         <span className="text-[10px] text-text-soft">•</span>
                         <span className="truncate text-[10px] text-text-soft">{formatEntryDateTime(entry)}</span>
                       </div>
-                      {entry.note && (
+                      {isLockedForViewer ? (
+                        <p className="mt-1 truncate text-[12px] font-medium leading-5 text-text-soft">
+                          Nội dung đã được khóa
+                        </p>
+                      ) : entry.note && (
                         <p className="mt-1 truncate text-[12px] leading-5 text-text-soft">
                           {getPinnedNotePreview(entry.note)}
                         </p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); handleTogglePin(entry.id); }}
-                      className="text-amber-400 hover:text-amber-600 transition-colors p-1 shrink-0 opacity-0 group-hover:opacity-100"
-                      title="Bỏ ghim"
-                    >
-                      <PinOff className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <PrivacyToggleButton
+                        isPrivate={Boolean(entry.is_private)}
+                        isPending={privacyPendingEntryIds.has(entry.id)}
+                        canToggle={isCurrentUser}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleTogglePrivacy(entry.id);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleTogglePin(entry.id); }}
+                        className="text-amber-400 hover:text-amber-600 transition-colors p-1 shrink-0 opacity-0 group-hover:opacity-100"
+                        title="Bỏ ghim"
+                      >
+                        <PinOff className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -908,12 +1038,14 @@ export const MoodJournal = () => {
                   const style = getMoodStyle(entry.mood);
                   const Icon = MOODS_WITH_ICONS.find(m => m.name === entry.mood)?.icon || Smile;
                   const isCurrentUser = entry.created_by === user?.id;
+                  const isLockedForViewer = Boolean(entry.is_private) && !isCurrentUser;
                   const writerProfile = getProfile(entry.created_by);
                   const isExpanded = expandedEntries.has(entry.id);
                   const isLongText =
                     needsExpansion(entry.note, 60, 2) ||
                     needsExpansion(entry.gratitude, 60, 2) ||
                     needsExpansion(entry.ai_advice, 120, 3);
+                  const visibleReactions = getVisibleReactionEntries(entry.reactions);
                   
                   return (
                     <Card
@@ -952,6 +1084,12 @@ export const MoodJournal = () => {
                             >
                               {entry.is_pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
                             </button>
+                            <PrivacyToggleButton
+                              isPrivate={Boolean(entry.is_private)}
+                              isPending={privacyPendingEntryIds.has(entry.id)}
+                              canToggle={isCurrentUser}
+                              onClick={() => { void handleTogglePrivacy(entry.id); }}
+                            />
                             {user?.email === 'tienquan0807@gmail.com' && (
                               <button 
                                 onClick={() => handleDeleteEntry(entry.id)}
@@ -964,6 +1102,10 @@ export const MoodJournal = () => {
                           </div>
                         </div>
 
+                        {isLockedForViewer ? (
+                          <LockedEntryPlaceholder />
+                        ) : (
+                          <>
                         {/* Mood Info Row */}
                         <div className="flex items-center gap-3">
                           <div className={`w-12 h-12 rounded-full flex items-center justify-center ${style.iconBg} ${style.iconColor}`}>
@@ -998,8 +1140,8 @@ export const MoodJournal = () => {
                         <div className="flex items-center justify-between mt-3 pt-3 border-t border-canvas-cool/60 relative">
                           {/* Current active reactions list */}
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            {Object.entries(entry.reactions || {}).length > 0 ? (
-                              Object.entries(entry.reactions || {}).map(([uid, emoji]) => {
+                            {visibleReactions.length > 0 ? (
+                              visibleReactions.map(([uid, emoji]) => {
                                 const reactorProfile = getProfile(uid);
                                 return (
                                   <div
@@ -1074,7 +1216,6 @@ export const MoodJournal = () => {
                             </AnimatePresence>
                           </div>
                         </div>
-                      </div>
 
                       <div className="mt-4 pt-4 border-t border-canvas-cool flex flex-col items-start">
                         {/* AI Advice Block */}
@@ -1111,6 +1252,9 @@ export const MoodJournal = () => {
                           </button>
                         )}
                       </div>
+                          </>
+                        )}
+                      </div>
                     </Card>
                   );
                 })}
@@ -1127,12 +1271,14 @@ export const MoodJournal = () => {
                         <th className="p-4">Năng lượng</th>
                         <th className="p-4">Cảm nhận</th>
                         <th className="p-4">Biết ơn</th>
+                        <th className="p-4 text-center">Riêng tư</th>
                         {user?.email === 'tienquan0807@gmail.com' && <th className="p-4">Thao tác</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {displayedEntries.map(entry => {
                         const isCurrentUser = entry.created_by === user?.id;
+                        const isLockedForViewer = Boolean(entry.is_private) && !isCurrentUser;
                         const writerProfile = getProfile(entry.created_by);
                         const style = getMoodStyle(entry.mood);
                         
@@ -1145,18 +1291,32 @@ export const MoodJournal = () => {
                               {formatEntryDateTime(entry)}
                             </td>
                             <td className="p-4">
-                              <span className={`px-3 py-1 rounded-full text-xs font-bold border ${style.bg} ${style.text} ${style.border}`}>
-                                {entry.mood}
+                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                                isLockedForViewer
+                                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                  : `${style.bg} ${style.text} ${style.border}`
+                              }`}>
+                                {isLockedForViewer && <Lock className="h-3.5 w-3.5 fill-emerald-200" />}
+                                {isLockedForViewer ? 'Đã khóa' : entry.mood}
                               </span>
                             </td>
                             <td className="p-4 font-bold text-text-main">
-                              {entry.energy_level}/10
+                              {isLockedForViewer ? '—' : `${entry.energy_level}/10`}
                             </td>
-                            <td className="p-4 text-text-main max-w-xs truncate" title={entry.note}>
-                              {entry.note || '-'}
+                            <td className="p-4 text-text-main max-w-xs truncate" title={isLockedForViewer ? undefined : entry.note}>
+                              {isLockedForViewer ? 'Nội dung riêng tư' : (entry.note || '-')}
                             </td>
-                            <td className="p-4 text-text-main max-w-xs truncate" title={entry.gratitude}>
-                              {entry.gratitude || '-'}
+                            <td className="p-4 text-text-main max-w-xs truncate" title={isLockedForViewer ? undefined : entry.gratitude}>
+                              {isLockedForViewer ? '—' : (entry.gratitude || '-')}
+                            </td>
+                            <td className="p-4 text-center">
+                              <PrivacyToggleButton
+                                isPrivate={Boolean(entry.is_private)}
+                                isPending={privacyPendingEntryIds.has(entry.id)}
+                                canToggle={isCurrentUser}
+                                onClick={() => { void handleTogglePrivacy(entry.id); }}
+                                className="mx-auto"
+                              />
                             </td>
                             {user?.email === 'tienquan0807@gmail.com' && (
                               <td className="p-4">

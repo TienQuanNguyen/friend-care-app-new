@@ -33,6 +33,7 @@ export interface MoodEntry {
   ai_advice?: string;
   reactions?: Record<string, string>;
   is_pinned?: boolean;
+  is_private?: boolean;
   entry_date: string; // YYYY-MM-DD
   created_at: string;
   updated_at: string;
@@ -160,6 +161,8 @@ export interface MusicNote {
   created_at: string;
   updated_at?: string | null;
   creator_name?: string | null;
+  heart_count?: number;
+  hearted_by_me?: boolean;
 }
 
 export type SpotifyItemType = 'track' | 'episode';

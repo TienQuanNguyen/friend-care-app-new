@@ -2,32 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ExternalLink, LockKeyhole, Music2 } from 'lucide-react';
 import { musicService } from '../services/musicService';
 import type { MusicNote } from '../types';
+import { getSpotifyEmbedHeight, parseSpotifyUrl } from '../utils/spotifyEmbed';
 
 const LOCK_MESSAGE =
   'Xin chào em thân yêu, giai đoạn này admin có vẻ không ổn và tinh thần không ổn định. Cậu ấy sẽ phải một mình tự chất vấn lại bản thân một khoảng thời gian đến khi nào ổn thì thôi.\n Trong giai đoạn này xin quý khách hãy nghe bài nhạc dưới đây để thư giãn trong lúc app khóa ạ.\n I miss u ~~';
-
-function getSpotifyEmbedUrl(value?: string | null): string | null {
-  if (!value) return null;
-
-  try {
-    const url = new URL(value);
-    if (url.hostname !== 'open.spotify.com') return null;
-
-    const parts = url.pathname.split('/').filter(Boolean);
-    const embedIndex = parts.indexOf('embed');
-    const typeIndex = embedIndex >= 0 ? embedIndex + 1 : 0;
-    const type = parts[typeIndex];
-    const id = parts[typeIndex + 1];
-
-    if (!['track', 'album', 'playlist', 'episode', 'show'].includes(type) || !id) {
-      return null;
-    }
-
-    return `https://open.spotify.com/embed/${type}/${encodeURIComponent(id)}?utm_source=generator&theme=0`;
-  } catch {
-    return null;
-  }
-}
 
 export const MaintenanceLockScreen = () => {
   const [music, setMusic] = useState<MusicNote | null>(null);
@@ -40,7 +18,7 @@ export const MaintenanceLockScreen = () => {
       .getMusicNotes()
       .then((notes) => {
         if (!isMounted) return;
-        setMusic(notes.find((note) => getSpotifyEmbedUrl(note.spotify_url)) ?? null);
+        setMusic(notes.find((note) => parseSpotifyUrl(note.spotify_url)) ?? null);
       })
       .catch((error) => {
         console.error('Không thể tải bài nhạc cho màn hình khóa:', error);
@@ -54,7 +32,7 @@ export const MaintenanceLockScreen = () => {
     };
   }, []);
 
-  const embedUrl = useMemo(() => getSpotifyEmbedUrl(music?.spotify_url), [music?.spotify_url]);
+  const spotifyResource = useMemo(() => parseSpotifyUrl(music?.spotify_url), [music?.spotify_url]);
 
   return (
     <main className="relative min-h-screen overflow-y-auto bg-canvas px-4 py-10 sm:px-6 sm:py-14">
@@ -102,13 +80,13 @@ export const MaintenanceLockScreen = () => {
                 <div className="h-7 w-7 animate-spin rounded-full border-2 border-brand-light border-b-brand" />
                 <span className="sr-only">Đang tải bài nhạc</span>
               </div>
-            ) : embedUrl ? (
+            ) : spotifyResource ? (
               <div className="overflow-hidden rounded-2xl border border-canvas-dark bg-canvas-cool shadow-sm">
                 <iframe
-                  src={embedUrl}
+                  src={spotifyResource.embedUrl}
                   title="Bài nhạc Spotify dành cho em"
                   width="100%"
-                  height="152"
+                  height={getSpotifyEmbedHeight(spotifyResource.type)}
                   frameBorder="0"
                   allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                   loading="lazy"
@@ -121,7 +99,7 @@ export const MaintenanceLockScreen = () => {
               </div>
             )}
 
-            {music?.spotify_url && embedUrl && (
+            {music?.spotify_url && spotifyResource && (
               <a
                 href={music.spotify_url}
                 target="_blank"

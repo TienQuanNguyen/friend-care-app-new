@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, Variants, AnimatePresence } from 'framer-motion';
 import { Card } from '../components/ui/Card';
 import { useCareSpace } from '../contexts/CareSpaceContext';
-import { Smile, Calendar as CalendarIcon, Heart, Users, Flame, Utensils, Image as ImageIcon, Sparkles, X, RefreshCw, Disc, Disc3, Plus, ExternalLink, Music, Trash2, MoreHorizontal, Waves } from 'lucide-react';
+import { Smile, Calendar as CalendarIcon, Heart, Users, Flame, Utensils, Image as ImageIcon, Sparkles, X, RefreshCw, Disc, Disc3, Plus, ExternalLink, Music, Trash2, MoreHorizontal, Waves, Headphones } from 'lucide-react';
 import { moodService } from '../services/moodService';
 import { scheduleService } from '../services/scheduleService';
 import { foodService } from '../services/foodService';
@@ -16,6 +16,13 @@ import { AnimatedCheck } from '../components/ui/AnimatedCheck';
 import { MiniConfetti } from '../components/ui/MiniConfetti';
 import { useAuth } from '../contexts/AuthContext';
 import { useStreak } from '../hooks/useStreak';
+import {
+  getSpotifyEmbedHeight,
+  getSpotifyResourceLabel,
+  getSpotifyShareTitle,
+  isSpotifyPodcastType,
+  parseSpotifyUrl,
+} from '../utils/spotifyEmbed';
 
 const stagger: Variants = {
   initial: {},
@@ -90,11 +97,121 @@ export function SpinningVinylIcon() {
     <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-brand-light">
       <div className="vinyl-spin relative flex items-center justify-center">
         <Disc3 className="h-5 w-5 text-brand" strokeWidth={2.2} />
-        <span className="absolute h-1.5 w-1.5 rounded-full bg-coral" />
+        <span className="absolute h-1.5 w-1.5 rounded-full bg-brand" />
       </div>
     </div>
   );
 }
+
+const splitTodaySpotifyNotes = (notes: MusicNote[]) => {
+  const music: MusicNote[] = [];
+  const podcasts: MusicNote[] = [];
+  const musicUsers = new Set<string>();
+  const podcastUsers = new Set<string>();
+
+  for (const note of notes) {
+    const resource = parseSpotifyUrl(note.spotify_url);
+    const isPodcast = resource ? isSpotifyPodcastType(resource.type) : false;
+    const seenUsers = isPodcast ? podcastUsers : musicUsers;
+    const target = isPodcast ? podcasts : music;
+
+    if (!seenUsers.has(note.created_by)) {
+      seenUsers.add(note.created_by);
+      target.push(note);
+    }
+  }
+
+  return { music, podcasts };
+};
+
+const SpotifySharePlayer = ({
+  slot,
+  profiles,
+  isHeartPending,
+  onToggleHeart,
+}: {
+  slot: MusicNote;
+  profiles: Array<{ user_id: string; display_name: string }>;
+  isHeartPending: boolean;
+  onToggleHeart: (slot: MusicNote) => void;
+}) => {
+  const resource = parseSpotifyUrl(slot.spotify_url);
+  const date = new Date(slot.created_at);
+  const formattedDate = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')} - ${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+  const creatorName = profiles.find(profile => profile.user_id === slot.created_by)?.display_name
+    || slot.creator_name
+    || 'Thành viên';
+
+  return (
+    <motion.div
+      key={slot.id}
+      initial={{ opacity: 0, x: 15 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -15 }}
+      transition={{ duration: 0.25 }}
+      className="space-y-3"
+    >
+      {resource ? (
+        <div className="relative w-full overflow-hidden rounded-[16px]">
+          <iframe
+            src={resource.embedUrl}
+            title={`${getSpotifyResourceLabel(resource.type)} Spotify của ${creatorName}`}
+            width="100%"
+            height={getSpotifyEmbedHeight(resource.type)}
+            frameBorder="0"
+            allowFullScreen={false}
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+            className="block bg-[#282828]"
+          />
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-canvas-dark/50 bg-canvas-cool/40 p-4">
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-extrabold leading-snug text-text-main md:text-lg">
+              {slot.title}
+            </h3>
+            {slot.artist && (
+              <p className="mt-0.5 truncate text-sm font-semibold text-brand-accent">
+                {slot.artist}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {slot.note && (
+        <p className="px-1 text-[13px] italic leading-relaxed text-text-soft">
+          "{slot.note}"
+        </p>
+      )}
+
+      <div className="mt-2 flex items-center justify-between gap-3 px-1">
+        <div className="text-[12px] font-bold text-[#6b7280]">
+          {creatorName} &bull; {formattedDate}
+        </div>
+        <button
+          type="button"
+          onClick={() => onToggleHeart(slot)}
+          disabled={isHeartPending}
+          aria-pressed={Boolean(slot.hearted_by_me)}
+          aria-label={slot.hearted_by_me ? 'Bỏ tim' : 'Thả tim'}
+          className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all disabled:cursor-wait disabled:opacity-60 ${
+            slot.hearted_by_me
+              ? 'bg-rose-50 text-rose-500 shadow-sm ring-1 ring-rose-100'
+              : 'bg-canvas-cool text-text-soft hover:bg-rose-50 hover:text-rose-500'
+          }`}
+        >
+          <Heart
+            className={`h-4 w-4 ${slot.hearted_by_me ? 'fill-current' : ''}`}
+            strokeWidth={2.2}
+          />
+          <span>{slot.heart_count || 'Thả tim'}</span>
+        </button>
+      </div>
+    </motion.div>
+  );
+};
 
 export const Dashboard = () => {
   const { user } = useAuth();
@@ -127,8 +244,11 @@ export const Dashboard = () => {
 
   // Music notes state
   const [todayMusicSlots, setTodayMusicSlots] = useState<MusicNote[]>([]);
+  const [todayPodcastSlots, setTodayPodcastSlots] = useState<MusicNote[]>([]);
   const [musicHistory, setMusicHistory] = useState<MusicNote[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [activePodcastIndex, setActivePodcastIndex] = useState(0);
+  const [heartPendingIds, setHeartPendingIds] = useState<Set<string>>(() => new Set());
   const [showAddForm, setShowAddForm] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
@@ -138,6 +258,7 @@ export const Dashboard = () => {
   const [isSavingMusic, setIsSavingMusic] = useState(false);
   const [musicError, setMusicError] = useState('');
   const [urlWarning, setUrlWarning] = useState('');
+  const pendingSpotifyResource = parseSpotifyUrl(musicSpotifyUrl);
 
   const formRef = React.useRef<HTMLDivElement>(null);
 
@@ -152,12 +273,12 @@ export const Dashboard = () => {
 
   const loadMusicData = async () => {
     try {
-      const today = await musicService.getTodayMusicByUser();
-      setTodayMusicSlots(today);
-      if (today.length > 0) {
-        // Safe check for index bounds
-        setActiveIndex(prev => (prev < today.length ? prev : 0));
-      }
+      const today = await musicService.getTodayMusicNotes();
+      const groups = splitTodaySpotifyNotes(today);
+      setTodayMusicSlots(groups.music);
+      setTodayPodcastSlots(groups.podcasts);
+      setActiveIndex(prev => (prev < groups.music.length ? prev : 0));
+      setActivePodcastIndex(prev => (prev < groups.podcasts.length ? prev : 0));
     } catch (err) {
       console.error('Error loading today music:', err);
     }
@@ -183,19 +304,18 @@ export const Dashboard = () => {
       setUrlWarning('');
       return;
     }
-    if (!value.startsWith('https://')) {
-      setUrlWarning('Link nên bắt đầu bằng https://');
-    } else if (!value.includes('spotify.com')) {
-      setUrlWarning('Nên sử dụng link từ open.spotify.com');
-    } else {
-      setUrlWarning('');
-    }
+    setUrlWarning(
+      parseSpotifyUrl(value)
+        ? ''
+        : 'Link chưa hợp lệ. Hãy dùng link bài nhạc, tập podcast hoặc chương trình từ open.spotify.com.'
+    );
   };
 
   const handleSaveMusic = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!musicSpotifyUrl.trim()) {
-      setMusicError('Vui lòng nhập Link Spotify.');
+    const spotifyResource = parseSpotifyUrl(musicSpotifyUrl);
+    if (!spotifyResource) {
+      setMusicError('Vui lòng nhập link Spotify hợp lệ của bài nhạc, tập podcast hoặc chương trình.');
       return;
     }
 
@@ -204,8 +324,8 @@ export const Dashboard = () => {
 
     try {
       const newNote = await musicService.createMusicNote({
-        title: "Bài nhạc đã chia sẻ",
-        spotify_url: musicSpotifyUrl.trim() || undefined,
+        title: getSpotifyShareTitle(spotifyResource.type),
+        spotify_url: spotifyResource.canonicalUrl,
         note: musicNote.trim() || undefined,
       });
 
@@ -215,18 +335,25 @@ export const Dashboard = () => {
         setShowAddForm(false);
         setUrlWarning('');
 
-        const today = await musicService.getTodayMusicByUser();
-        setTodayMusicSlots(today);
+        const today = await musicService.getTodayMusicNotes();
+        const groups = splitTodaySpotifyNotes(today);
+        setTodayMusicSlots(groups.music);
+        setTodayPodcastSlots(groups.podcasts);
 
         if (user) {
-          const index = today.findIndex(n => n.created_by === user.id);
+          const isPodcast = isSpotifyPodcastType(spotifyResource.type);
+          const target = isPodcast ? groups.podcasts : groups.music;
+          const index = target.findIndex(note => note.created_by === user.id);
           if (index !== -1) {
-            setActiveIndex(index);
+            if (isPodcast) setActivePodcastIndex(index);
+            else setActiveIndex(index);
           } else {
-            setActiveIndex(0);
+            if (isPodcast) setActivePodcastIndex(0);
+            else setActiveIndex(0);
           }
         } else {
-          setActiveIndex(0);
+          if (isSpotifyPodcastType(spotifyResource.type)) setActivePodcastIndex(0);
+          else setActiveIndex(0);
         }
       }
     } catch (err: any) {
@@ -245,6 +372,40 @@ export const Dashboard = () => {
       await loadMusicHistory();
     } catch (err) {
       alert('Xóa bài nhạc thất bại.');
+    }
+  };
+
+  const handleMusicHeart = async (slot: MusicNote) => {
+    if (!user || heartPendingIds.has(slot.id)) return;
+
+    const wasHearted = Boolean(slot.hearted_by_me);
+    const previousCount = slot.heart_count || 0;
+    const nextHearted = !wasHearted;
+    const nextCount = Math.max(0, previousCount + (nextHearted ? 1 : -1));
+    const updateSlot = (item: MusicNote, hearted: boolean, count: number) => (
+      item.id === slot.id
+        ? { ...item, hearted_by_me: hearted, heart_count: count }
+        : item
+    );
+
+    setHeartPendingIds(previous => new Set(previous).add(slot.id));
+    setTodayMusicSlots(previous => previous.map(item => updateSlot(item, nextHearted, nextCount)));
+    setTodayPodcastSlots(previous => previous.map(item => updateSlot(item, nextHearted, nextCount)));
+    setMusicHistory(previous => previous.map(item => updateSlot(item, nextHearted, nextCount)));
+
+    try {
+      await musicService.setHeart(slot.id, nextHearted);
+    } catch (error) {
+      console.error('Không thể cập nhật lượt tim:', error);
+      setTodayMusicSlots(previous => previous.map(item => updateSlot(item, wasHearted, previousCount)));
+      setTodayPodcastSlots(previous => previous.map(item => updateSlot(item, wasHearted, previousCount)));
+      setMusicHistory(previous => previous.map(item => updateSlot(item, wasHearted, previousCount)));
+    } finally {
+      setHeartPendingIds(previous => {
+        const next = new Set(previous);
+        next.delete(slot.id);
+        return next;
+      });
     }
   };
 
@@ -652,7 +813,7 @@ export const Dashboard = () => {
                 onClick={() => setShowAddForm(!showAddForm)}
                 className="whitespace-nowrap rounded-full bg-brand-light px-3 py-1.5 text-[13px] font-bold text-brand transition-colors hover:bg-[#c4eaf6] md:px-4 md:py-2 md:text-sm"
               >
-                + Thêm bài nhạc
+                + Thêm nhạc / podcast
               </button>
             </div>
           </div>
@@ -665,75 +826,61 @@ export const Dashboard = () => {
           ) : (
             <div className="relative">
               <AnimatePresence mode="wait">
-                {todayMusicSlots[activeIndex] && (() => {
-                  const activeSlot = todayMusicSlots[activeIndex];
-                  const d = new Date(activeSlot.created_at);
-                  const formattedDate = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')} - ${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-                  const creatorName = profiles.find(p => p.user_id === activeSlot.created_by)?.display_name || activeSlot.creator_name || 'Thành viên';
-                  
-                  let embedUrl = activeSlot.spotify_url;
-                  try {
-                    if (embedUrl && embedUrl.includes('open.spotify.com/track/')) {
-                      const trackId = embedUrl.split('/track/')[1].split('?')[0];
-                      embedUrl = `https://open.spotify.com/embed/track/${trackId}?utm_source=generator`;
-                    }
-                  } catch (e) {
-                    // Ignore
-                  }
-
-                  return (
-                    <motion.div
-                      key={activeSlot.id}
-                      initial={{ opacity: 0, x: 15 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -15 }}
-                      transition={{ duration: 0.25 }}
-                      className="space-y-3"
-                    >
-                      {/* Spotify Embed or Link */}
-                      {embedUrl ? (
-                        <div className="rounded-[16px] overflow-hidden w-full relative">
-                           <iframe 
-                             src={embedUrl} 
-                             width="100%" 
-                             height="152" 
-                             frameBorder="0" 
-                             allowFullScreen={false} 
-                             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-                             loading="lazy"
-                             className="block bg-[#282828]"
-                           ></iframe>
-                        </div>
-                      ) : (
-                        <div className="bg-canvas-cool/40 border border-canvas-dark/50 rounded-2xl p-4 flex items-center justify-between gap-4">
-                          <div className="min-w-0">
-                            <h3 className="font-extrabold text-text-main text-base md:text-lg leading-snug truncate">
-                              {activeSlot.title}
-                            </h3>
-                            {activeSlot.artist && (
-                              <p className="text-sm text-brand-accent font-semibold truncate mt-0.5">
-                                {activeSlot.artist}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Note if exists */}
-                      {activeSlot.note && (
-                        <p className="text-[13px] italic text-text-soft leading-relaxed px-1">
-                          "{activeSlot.note}"
-                        </p>
-                      )}
-                      
-                      {/* Creator info */}
-                      <div className="text-[12px] font-bold text-[#6b7280] px-1 mt-2">
-                        {creatorName} &bull; {formattedDate}
-                      </div>
-                    </motion.div>
-                  );
-                })()}
+                {todayMusicSlots[activeIndex] && (
+                  <SpotifySharePlayer
+                    key={todayMusicSlots[activeIndex].id}
+                    slot={todayMusicSlots[activeIndex]}
+                    profiles={profiles}
+                    isHeartPending={heartPendingIds.has(todayMusicSlots[activeIndex].id)}
+                    onToggleHeart={handleMusicHeart}
+                  />
+                )}
               </AnimatePresence>
+            </div>
+          )}
+
+          {todayPodcastSlots.length > 0 && (
+            <div className="mt-6 border-t border-canvas-dark/70 pt-5">
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-brand-light">
+                    <Headphones className="h-5 w-5 text-brand" strokeWidth={2.2} />
+                  </span>
+                  <h3 className="section-title text-[17px] text-brand-house md:text-[19px]">
+                    Podcast hôm nay
+                  </h3>
+                </div>
+
+                {todayPodcastSlots.length > 1 && (
+                  <div className="flex items-center gap-1.5">
+                    {todayPodcastSlots.map((slot, index) => (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        onClick={() => setActivePodcastIndex(index)}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${
+                          index === activePodcastIndex ? 'w-4 bg-brand' : 'w-1.5 bg-[#e5e5e5] hover:bg-gray-300'
+                        }`}
+                        title={`Podcast của ${profiles.find(profile => profile.user_id === slot.created_by)?.display_name || slot.creator_name || 'thành viên'}`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="relative">
+                <AnimatePresence mode="wait">
+                  {todayPodcastSlots[activePodcastIndex] && (
+                    <SpotifySharePlayer
+                      key={todayPodcastSlots[activePodcastIndex].id}
+                      slot={todayPodcastSlots[activePodcastIndex]}
+                      profiles={profiles}
+                      isHeartPending={heartPendingIds.has(todayPodcastSlots[activePodcastIndex].id)}
+                      onToggleHeart={handleMusicHeart}
+                    />
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           )}
 
@@ -750,14 +897,14 @@ export const Dashboard = () => {
                 <form onSubmit={handleSaveMusic} className="space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-text-soft uppercase tracking-wider mb-1 flex items-center justify-between">
-                      <span>Link Spotify *</span>
+                      <span>Link Spotify — nhạc hoặc podcast *</span>
                       {urlWarning && <span className="text-[10px] text-amber-600 font-semibold">{urlWarning}</span>}
                     </label>
                     <input
-                      type="text"
+                      type="url"
                       value={musicSpotifyUrl}
                       onChange={e => handleUrlChange(e.target.value)}
-                      placeholder="https://open.spotify.com/track/..."
+                      placeholder="https://open.spotify.com/track/... hoặc /episode/..."
                       required
                       className="w-full bg-white border border-canvas-dark rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand transition-colors"
                     />
@@ -799,7 +946,11 @@ export const Dashboard = () => {
                       disabled={isSavingMusic}
                       className="bg-brand hover:bg-brand-accent text-white font-bold px-4 py-2 rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
                     >
-                      {isSavingMusic ? 'Đang lưu...' : 'Lưu bài nhạc'}
+                      {isSavingMusic
+                        ? 'Đang lưu...'
+                        : pendingSpotifyResource && isSpotifyPodcastType(pendingSpotifyResource.type)
+                          ? 'Lưu podcast'
+                          : 'Lưu bài nhạc'}
                     </button>
                   </div>
                 </form>
@@ -1363,6 +1514,7 @@ export const Dashboard = () => {
                         ? format(parseISO(note.created_at), 'dd/MM/yyyy HH:mm')
                         : '';
                       const isMyNote = user && note.created_by === user.id;
+                      const spotifyResource = parseSpotifyUrl(note.spotify_url);
 
                       return (
                         <div key={note.id} className="bg-canvas-cool/60 border border-canvas-dark rounded-2xl p-4 flex flex-col justify-between shadow-sm relative group hover:border-brand/35 transition-colors">
@@ -1379,6 +1531,11 @@ export const Dashboard = () => {
                             {/* Song Info */}
                             <div className="mb-2">
                               <div className="font-bold text-text-main text-sm leading-snug line-clamp-1">{note.title}</div>
+                              {spotifyResource && (
+                                <div className="mt-1 text-[10px] font-bold uppercase tracking-wide text-brand-accent">
+                                  {getSpotifyResourceLabel(spotifyResource.type)}
+                                </div>
+                              )}
                               {note.artist && (
                                 <div className="text-xs text-brand-accent font-semibold truncate mt-0.5">{note.artist}</div>
                               )}

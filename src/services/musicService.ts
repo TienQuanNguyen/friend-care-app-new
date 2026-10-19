@@ -1,6 +1,97 @@
 import { MusicNote } from '../types';
 import { supabase } from '../lib/supabase';
 
+const MUSIC_NOTE_META_PREFIX = '__friend_care_music_meta_v1__:';
+const MUSIC_HEART_OVERRIDES_KEY = 'friend-care:music-heart-overrides';
+
+type MusicNoteMetadata = {
+  text: string | null;
+  hearts: string[];
+};
+
+const decodeMusicNoteMetadata = (rawNote?: string | null): MusicNoteMetadata => {
+  if (!rawNote?.startsWith(MUSIC_NOTE_META_PREFIX)) {
+    return { text: rawNote || null, hearts: [] };
+  }
+
+  try {
+    const parsed = JSON.parse(rawNote.slice(MUSIC_NOTE_META_PREFIX.length)) as {
+      text?: unknown;
+      hearts?: unknown;
+    };
+    const hearts = Array.isArray(parsed.hearts)
+      ? parsed.hearts.filter((value): value is string => typeof value === 'string')
+      : [];
+
+    return {
+      text: typeof parsed.text === 'string' ? parsed.text : null,
+      hearts: Array.from(new Set(hearts)),
+    };
+  } catch {
+    return { text: rawNote, hearts: [] };
+  }
+};
+
+const encodeMusicNoteMetadata = (metadata: MusicNoteMetadata): string | null => {
+  if (metadata.hearts.length === 0) return metadata.text || null;
+  return `${MUSIC_NOTE_META_PREFIX}${JSON.stringify(metadata)}`;
+};
+
+const readHeartOverrides = (userId: string): Record<string, boolean> => {
+  if (typeof window === 'undefined') return {};
+
+  try {
+    const stored = window.localStorage.getItem(`${MUSIC_HEART_OVERRIDES_KEY}:${userId}`);
+    if (!stored) return {};
+
+    const parsed = JSON.parse(stored) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as Record<string, boolean>
+      : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeHeartOverride = (userId: string, noteId: string, hearted?: boolean) => {
+  if (typeof window === 'undefined') return;
+
+  const key = `${MUSIC_HEART_OVERRIDES_KEY}:${userId}`;
+  const overrides = readHeartOverrides(userId);
+  if (typeof hearted === 'boolean') overrides[noteId] = hearted;
+  else delete overrides[noteId];
+
+  try {
+    if (Object.keys(overrides).length > 0) {
+      window.localStorage.setItem(key, JSON.stringify(overrides));
+    } else {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // The optimistic UI still works for the current page if storage is unavailable.
+  }
+};
+
+const addHeartSummaries = (notes: MusicNote[], userId: string): MusicNote[] => {
+  const overrides = readHeartOverrides(userId);
+
+  return notes.map(note => {
+    const metadata = decodeMusicNoteMetadata(note.note);
+    const hearts = new Set(metadata.hearts);
+    if (Object.prototype.hasOwnProperty.call(overrides, note.id)) {
+      if (overrides[note.id]) hearts.add(userId);
+      else hearts.delete(userId);
+    }
+
+    return {
+      ...note,
+      note: metadata.text,
+      heart_count: hearts.size,
+      hearted_by_me: hearts.has(userId),
+    };
+  });
+};
+
 export const musicService = {
   /**
    * Get the care space ID of the current logged-in user.
@@ -45,10 +136,12 @@ export const musicService = {
 
     const profileMap = new Map((profiles || []).map(p => [p.user_id, p.display_name]));
 
-    return (data || []).map(note => ({
+    const notes = (data || []).map(note => ({
       ...note,
       creator_name: profileMap.get(note.created_by) || null
     })) as MusicNote[];
+
+    return addHeartSummaries(notes, spaceInfo.userId);
   },
 
   /**
@@ -80,10 +173,12 @@ export const musicService = {
 
     const profileMap = new Map((profiles || []).map(p => [p.user_id, p.display_name]));
 
-    return (data || []).map(note => ({
+    const notes = (data || []).map(note => ({
       ...note,
       creator_name: profileMap.get(note.created_by) || null
     })) as MusicNote[];
+
+    return addHeartSummaries(notes, spaceInfo.userId);
   },
 
   /**
@@ -154,6 +249,46 @@ export const musicService = {
     }
   },
 
+  /** Add or remove the current user's heart on a shared Spotify item. */
+  async setHeart(id: string, hearted: boolean): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { data: musicNote, error: fetchError } = await supabase
+      .from('music_notes')
+      .select('note')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchError || !musicNote) {
+      console.warn('Using local music heart fallback:', fetchError);
+      writeHeartOverride(user.id, id, hearted);
+      return;
+    }
+
+    const metadata = decodeMusicNoteMetadata(musicNote.note);
+    const hearts = new Set(metadata.hearts);
+    if (hearted) hearts.add(user.id);
+    else hearts.delete(user.id);
+
+    const { data, error } = await supabase
+      .from('music_notes')
+      .update({
+        note: encodeMusicNoteMetadata({ ...metadata, hearts: Array.from(hearts) }),
+      })
+      .eq('id', id)
+      .select('id')
+      .maybeSingle();
+
+    if (error || !data) {
+      console.warn('Music heart could not be shared; using local fallback:', error);
+      writeHeartOverride(user.id, id, hearted);
+      return;
+    }
+
+    writeHeartOverride(user.id, id);
+  },
+
   /**
    * Update an existing music note.
    */
@@ -163,13 +298,23 @@ export const musicService = {
     spotify_url?: string;
     note?: string;
   }): Promise<MusicNote | null> {
+    const { data: existingNote } = await supabase
+      .from('music_notes')
+      .select('note')
+      .eq('id', id)
+      .maybeSingle();
+    const existingMetadata = decodeMusicNoteMetadata(existingNote?.note);
+
     const { data, error } = await supabase
       .from('music_notes')
       .update({
         title: input.title,
         artist: input.artist || null,
         spotify_url: input.spotify_url || null,
-        note: input.note || null,
+        note: encodeMusicNoteMetadata({
+          text: input.note || null,
+          hearts: existingMetadata.hearts,
+        }),
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
