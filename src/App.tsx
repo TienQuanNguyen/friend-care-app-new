@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { WebPushProvider } from './contexts/WebPushProvider';
 import { CareSpaceProvider } from './contexts/CareSpaceContext';
 import { AppLayout } from './components/layout/AppLayout';
 
@@ -46,6 +47,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <WebPushProvider>
         <CareSpaceProvider>
           <StreakProvider>
             <Routes>
@@ -82,6 +84,7 @@ function App() {
             <MaintenanceAwareAnnouncement />
           </StreakProvider>
         </CareSpaceProvider>
+        </WebPushProvider>
       </AuthProvider>
     </BrowserRouter>
   );

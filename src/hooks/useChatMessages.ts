@@ -182,23 +182,16 @@ export async function sendMessage(
     replyToId?: string;
   },
 ): Promise<ChatMessage> {
-  const { data, error } = await supabase
-    .from('chat_messages')
-    .insert({
-      care_space_id: careSpaceId,
-      sender_id: senderId,
-      content: payload.content,
-      type: payload.type,
-      reply_to_id: payload.replyToId ?? null,
-    })
-    .select('*')
-    .single();
-
-  if (error) {
-    throw new Error(`[useChatMessages] sendMessage failed: ${error.message}`);
+  // The server authenticates the sender and dispatches push after saving.
+  // Reuse the ID when retrying a lost response, so the message cannot duplicate.
+  const body = { action: 'send-message', messageId: crypto.randomUUID(), careSpaceId,
+    content: payload.content, type: payload.type, replyToId: payload.replyToId };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { data, error } = await supabase.functions.invoke('send-push-notification', { body });
+    if (!error && data?.message?.sender_id === senderId) return data.message as ChatMessage;
+    if (attempt === 1) throw new Error('Chưa gửi được tin nhắn. Hãy kiểm tra kết nối rồi thử lại.');
   }
-
-  return data as ChatMessage;
+  throw new Error('Chưa gửi được tin nhắn.');
 }
 
 // ---------------------------------------------------------------------------

@@ -21,6 +21,7 @@ import React, {
   useMemo,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { MessageCircleDashed, WifiOff, Pin, X, Bell } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '../../contexts/AuthContext';
@@ -93,7 +94,7 @@ export const ChatRoom: React.FC = () => {
   const { user } = useAuth();
   const { careSpace, profiles } = useCareSpace();
   const { log } = useActivityLog();
-  const { permission, requestPermissionAndSubscribe, isLoading: isPushLoading } = useWebPush();
+  const { permission, needsInstall, isSubscribed, error: pushError, requestPermissionAndSubscribe, isLoading: isPushLoading } = useWebPush();
 
   const careSpaceId = careSpace?.id ?? null;
 
@@ -451,8 +452,13 @@ export const ChatRoom: React.FC = () => {
       )}
 
       {/* Floating Push Notification Enable Button */}
-      {permission === 'default' && (
+      {!isSubscribed && (needsInstall || permission === 'default' || permission === 'granted') && (
         <div className="absolute top-3 right-3 z-50">
+          {needsInstall ? (
+            <Link to="/settings#notifications" className="flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-[11px] font-bold text-white shadow-md">
+              <Bell className="h-3.5 w-3.5" /> Bật thông báo trên iPhone
+            </Link>
+          ) : (
           <button
             onClick={() => void requestPermissionAndSubscribe()}
             disabled={isPushLoading}
@@ -460,8 +466,10 @@ export const ChatRoom: React.FC = () => {
             title="Bật thông báo tin nhắn mới"
           >
             <Bell className="w-3.5 h-3.5" />
-            {isPushLoading ? 'Đang xin quyền...' : 'Bật thông báo'}
+            {isPushLoading ? 'Đang bật...' : 'Bật thông báo'}
           </button>
+          )}
+          {pushError && <Link to="/settings#notifications" role="alert" className="mt-2 block max-w-64 rounded-xl bg-white p-3 text-xs text-red-600 shadow">{pushError.message} Mở cài đặt →</Link>}
         </div>
       )}
 
