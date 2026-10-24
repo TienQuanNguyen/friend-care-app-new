@@ -93,7 +93,7 @@ export const Onboarding = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#EFF6FF] via-[#F8FAFC] to-[#ECFDF5] flex items-center justify-center p-4">
+    <div className="min-h-screen h-full overflow-y-auto bg-gradient-to-br from-[#EFF6FF] via-[#F8FAFC] to-[#ECFDF5] flex items-center justify-center p-4">
       <AnimatePresence mode="wait">
 
         {/* Select Mode */}

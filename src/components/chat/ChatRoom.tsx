@@ -21,8 +21,8 @@ import React, {
   useMemo,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import { MessageCircleDashed, WifiOff, Pin, X, Bell } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { MessageCircleDashed, WifiOff, Pin, X, Bell, ChevronLeft } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCareSpace } from '../../contexts/CareSpaceContext';
@@ -110,11 +110,23 @@ export const ChatRoom: React.FC = () => {
 
   // ── Dynamic Visual Viewport Height for Mobile Keyboard ───────────────────
   const [viewportHeight, setViewportHeight] = useState('100%');
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+  const navigate = useNavigate();
+
+  const handleBack = useCallback(() => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  }, [navigate]);
 
   useEffect(() => {
     const isMobile = window.innerWidth < 768;
     if (!isMobile) {
       setViewportHeight('100%');
+      setIsKeyboardOpen(false);
       return;
     }
 
@@ -126,8 +138,17 @@ export const ChatRoom: React.FC = () => {
 
     const handleResize = () => {
       if (!window.visualViewport) return;
-      const headerOffset = 0; // No header on chat page
-      setViewportHeight(`${window.visualViewport.height - headerOffset}px`);
+      const vh = window.visualViewport.height;
+      setViewportHeight(`${vh}px`);
+
+      // Detect if virtual keyboard is active (viewport shrinks significantly)
+      const keyboardActive = vh < window.innerHeight - 100;
+      setIsKeyboardOpen(keyboardActive);
+
+      // Prevent iOS Safari from scrolling window/document
+      if (window.scrollY !== 0) {
+        window.scrollTo(0, 0);
+      }
     };
 
     window.visualViewport.addEventListener('resize', handleResize);
@@ -243,6 +264,14 @@ export const ChatRoom: React.FC = () => {
       .map((uid) => profiles.find((p) => p.user_id === uid)?.display_name ?? 'Người bạn')
       .slice(0, 2);
   }, [typingUsers, profiles]);
+
+  const partnerProfile = useMemo(() => {
+    return profiles.find((p) => p.user_id !== user?.id) || null;
+  }, [profiles, user]);
+
+  const isPartnerTyping = useMemo(() => {
+    return typingNames.length > 0;
+  }, [typingNames]);
 
   const myProfile = useMemo(
     () => (user ? profiles.find((p) => p.user_id === user.id) : null),
@@ -428,48 +457,109 @@ export const ChatRoom: React.FC = () => {
     <div
       style={{
         height: viewportHeight,
-        // Ensure the container never goes under iOS home indicator
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
       className="flex flex-col min-h-0 bg-canvas overflow-hidden w-full relative"
     >
-      {/* Floating Back Button for Mobile (Since header is hidden) */}
-      <div className="absolute top-2 left-2 z-50 md:hidden">
-        <button
-          onClick={() => window.history.back()}
-          className="p-2 bg-white/70 backdrop-blur-md rounded-full shadow-sm text-text-main hover:bg-white/90 border border-black/5"
-          aria-label="Quay lại"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg>
-        </button>
-      </div>
+      {/* ── Top Chat Header (Fixed & Safe-Area Aware) ── */}
+      <header
+        className="shrink-0 z-30 bg-white/85 backdrop-blur-xl border-b border-canvas-dark/70 shadow-xs select-none"
+        style={{
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+        }}
+      >
+        <div className="flex items-center justify-between h-14 px-3 sm:px-4 gap-2">
+          {/* Left: Back button + Partner Profile Info */}
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={handleBack}
+              className="p-2 -ml-1 rounded-full text-text-main hover:bg-canvas-dark/50 active:scale-95 transition-all md:hidden"
+              aria-label="Quay lại"
+              title="Quay lại"
+            >
+              <ChevronLeft className="w-5 h-5 text-text-main" />
+            </button>
 
-      {/* Floating Connection Status Badge */}
-      {error && (
-        <div className="absolute top-4 right-14 z-50 flex items-center gap-1.5 text-[11px] bg-red-50 text-semantic-destructive font-semibold px-3 py-1.5 rounded-full shadow border border-red-200 animate-pulse select-none">
-          <WifiOff className="w-3.5 h-3.5" /> Mất kết nối
+            {/* Avatar & Online status indicator */}
+            <div className="relative shrink-0">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-brand/15 to-brand-accent/20 border border-brand/20 flex items-center justify-center text-lg shadow-xs">
+                {partnerProfile?.avatar_emoji || '💚'}
+              </div>
+              {isPartnerOnline && (
+                <span
+                  className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full shadow-xs"
+                  title="Đang hoạt động"
+                />
+              )}
+            </div>
+
+            {/* Name + Subtitle (typing or online/offline status) */}
+            <div className="flex flex-col min-w-0 leading-tight">
+              <span className="font-bold text-[14px] text-text-main truncate">
+                {partnerProfile?.display_name || careSpace?.name || 'Trò chuyện'}
+              </span>
+              <span className="text-[11px] truncate flex items-center gap-1">
+                {isPartnerTyping ? (
+                  <span className="text-brand font-semibold animate-pulse">
+                    đang soạn tin nhắn...
+                  </span>
+                ) : isPartnerOnline ? (
+                  <span className="text-emerald-600 font-medium flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Đang hoạt động
+                  </span>
+                ) : (
+                  <span className="text-text-soft">Ngoại tuyến</span>
+                )}
+              </span>
+            </div>
+          </div>
+
+          {/* Right: Actions & Badges */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Connection error */}
+            {error && (
+              <div className="flex items-center gap-1 text-[11px] bg-red-50 text-semantic-destructive font-semibold px-2.5 py-1 rounded-full border border-red-200 animate-pulse">
+                <WifiOff className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Mất kết nối</span>
+              </div>
+            )}
+
+            {/* Push Notification button */}
+            {!isSubscribed && (needsInstall || permission === 'default' || permission === 'granted') && (
+              <div>
+                {needsInstall ? (
+                  <Link
+                    to="/settings#notifications"
+                    className="flex items-center gap-1.5 rounded-full bg-brand/10 hover:bg-brand/20 text-brand px-2.5 py-1.5 text-[11px] font-bold transition-colors border border-brand/20"
+                    title="Bật thông báo trên iPhone"
+                  >
+                    <Bell className="h-3.5 w-3.5" />
+                    <span className="hidden xs:inline">Thông báo</span>
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => void requestPermissionAndSubscribe()}
+                    disabled={isPushLoading}
+                    className="flex items-center gap-1.5 text-[11px] font-bold bg-brand text-white hover:bg-brand-accent px-2.5 py-1.5 rounded-full shadow-sm transition-all active:scale-95 border border-white/20 disabled:opacity-50 select-none"
+                    title="Bật thông báo tin nhắn mới"
+                  >
+                    <Bell className="w-3.5 h-3.5" />
+                    <span>{isPushLoading ? 'Đang bật...' : 'Bật thông báo'}</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </header>
 
-      {/* Floating Push Notification Enable Button */}
-      {!isSubscribed && (needsInstall || permission === 'default' || permission === 'granted') && (
-        <div className="absolute top-3 right-3 z-50">
-          {needsInstall ? (
-            <Link to="/settings#notifications" className="flex items-center gap-1.5 rounded-full bg-brand px-3 py-1.5 text-[11px] font-bold text-white shadow-md">
-              <Bell className="h-3.5 w-3.5" /> Bật thông báo trên iPhone
-            </Link>
-          ) : (
-          <button
-            onClick={() => void requestPermissionAndSubscribe()}
-            disabled={isPushLoading}
-            className="flex items-center gap-1.5 text-[11px] font-bold bg-brand text-white hover:bg-brand-accent px-3 py-1.5 rounded-full shadow-md transition-all active:scale-95 border border-white/20 select-none"
-            title="Bật thông báo tin nhắn mới"
-          >
-            <Bell className="w-3.5 h-3.5" />
-            {isPushLoading ? 'Đang bật...' : 'Bật thông báo'}
-          </button>
-          )}
-          {pushError && <Link to="/settings#notifications" role="alert" className="mt-2 block max-w-64 rounded-xl bg-white p-3 text-xs text-red-600 shadow">{pushError.message} Mở cài đặt →</Link>}
+      {/* Push notification error banner if any */}
+      {pushError && (
+        <div className="shrink-0 bg-red-50 border-b border-red-200 px-4 py-1.5 text-xs text-red-600 flex items-center justify-between">
+          <span className="truncate">{pushError.message}</span>
+          <Link to="/settings#notifications" className="font-semibold underline ml-2 shrink-0">
+            Cài đặt →
+          </Link>
         </div>
       )}
 
@@ -480,7 +570,7 @@ export const ChatRoom: React.FC = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="shrink-0 bg-brand-light/30 border-b border-brand-light/60 px-4 py-2.5 flex items-center gap-3 shadow-sm select-none cursor-pointer z-10"
+            className="shrink-0 bg-brand-light/30 border-b border-brand-light/60 px-4 py-2.5 flex items-center gap-3 shadow-xs select-none cursor-pointer z-10"
             onClick={() => handleScrollToMessage(newestPinnedMessage.id)}
           >
             <Pin className="w-4 h-4 text-brand-accent rotate-45 shrink-0" />
@@ -539,7 +629,7 @@ export const ChatRoom: React.FC = () => {
             exit={{ opacity: 0, y: 6 }}
             className="shrink-0 px-4 pb-1.5 flex items-center gap-1.5 select-none"
           >
-            <div className="flex items-center gap-0.5 bg-white rounded-full px-2 py-1 shadow-sm border border-canvas-dark">
+            <div className="flex items-center gap-0.5 bg-white rounded-full px-2 py-1 shadow-xs border border-canvas-dark">
               {[0, 1, 2].map((i) => (
                 <motion.div
                   key={i}
@@ -561,17 +651,24 @@ export const ChatRoom: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* ── Input ── */}
-      <MessageInput
-        onSendText={handleSendText}
-        onSendMedia={handleSendMedia}
-        onSendEmoji={handleSendEmoji}
-        replyTo={replyTo}
-        onCancelReply={() => setReplyTo(null)}
-        uploadProgress={uploadProgress}
-        isSending={activeSending}
-        onTypingChange={setIsMyTyping}
-      />
+      {/* ── Input with Safe Area ── */}
+      <div
+        className="shrink-0 bg-white"
+        style={{
+          paddingBottom: isKeyboardOpen ? '0px' : 'env(safe-area-inset-bottom, 0px)',
+        }}
+      >
+        <MessageInput
+          onSendText={handleSendText}
+          onSendMedia={handleSendMedia}
+          onSendEmoji={handleSendEmoji}
+          replyTo={replyTo}
+          onCancelReply={() => setReplyTo(null)}
+          uploadProgress={uploadProgress}
+          isSending={activeSending}
+          onTypingChange={setIsMyTyping}
+        />
+      </div>
     </div>
   );
 };
