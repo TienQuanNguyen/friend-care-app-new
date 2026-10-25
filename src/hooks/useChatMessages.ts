@@ -30,7 +30,7 @@ import type {
   RealtimeMessagePayload,
   UseChatMessagesReturn,
 } from '../types/chat';
-import type { Dispatch, SetStateAction } from 'react';
+import { hydrateReplies, type MessageRow, type ReplyMessage } from '../lib/chatReplies';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -49,7 +49,7 @@ const LIMIT = 20;
  * Joins:
  *  - `sender:profiles!fk_chat_messages_sender` — explicit FK constraint name.
  *    PostgREST resolves chat_messages.sender_id → profiles.user_id via this FK.
- *   the reply_to_id column (self-join).
+ * Reply parents are fetched separately in one RLS-protected batch per page.
  *
  * Only the minimal columns needed for display are fetched to limit egress.
  */
@@ -67,19 +67,19 @@ const MESSAGE_SELECT = `
   sender:profiles!fk_chat_messages_sender (
     display_name,
     avatar_emoji
-  ),
-  reply_to:chat_messages!reply_to_id (
-    id,
-    content,
-    type,
-    sender_id,
-    is_deleted,
-    sender:profiles!fk_chat_messages_sender (
-      display_name,
-      avatar_emoji
-    )
   )
 `.trim();
+
+async function withReplies(rows: MessageRow[]): Promise<ChatMessageWithSender[]> {
+  return hydrateReplies(rows, async ids => {
+    const { data, error } = await supabase.from('chat_messages')
+      .select('id,content,type,sender_id,is_deleted,sender:profiles!fk_chat_messages_sender(display_name,avatar_emoji)')
+      .in('id', ids);
+    // Preserve the chat itself if a parent is no longer readable; UI has a fallback.
+    if (error) return [];
+    return (data ?? []) as unknown as ReplyMessage[];
+  });
+}
 
 // ---------------------------------------------------------------------------
 // fetchMessages — pure async helper (not a hook)
@@ -123,7 +123,7 @@ export async function fetchMessages(
     throw new Error(`[useChatMessages] fetchMessages failed: ${error.message}`);
   }
 
-  const messages = (data ?? []) as unknown as ChatMessageWithSender[];
+  const messages = await withReplies((data ?? []) as unknown as MessageRow[]);
 
   // The next cursor is the oldest message in this page.
   const oldest = messages[messages.length - 1];
@@ -157,7 +157,7 @@ export async function fetchSingleMessage(
     .single();
 
   if (error || !data) return null;
-  return data as unknown as ChatMessageWithSender;
+  return (await withReplies([data as unknown as MessageRow]))[0];
 }
 
 // ---------------------------------------------------------------------------
@@ -344,11 +344,11 @@ export function useChatMessages(careSpaceId: string | null): UseChatMessagesRetu
       // Merge updated fields but preserve existing joined data (sender, reply_to)
       // which are not part of the DB row and thus not in the payload.
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === payload.new.id
-            ? { ...m, ...payload.new, sender: m.sender, reply_to: m.reply_to }
-            : m,
-        ),
+        prev.map(m => {
+          if (m.id === payload.new.id) return { ...m, ...payload.new, sender: m.sender, reply_to: m.reply_to };
+          if (m.reply_to?.id === payload.new.id) return { ...m, reply_to: { ...m.reply_to, ...payload.new } };
+          return m;
+        }),
       );
     }
   }, []);

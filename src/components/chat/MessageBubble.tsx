@@ -10,7 +10,7 @@
  */
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -19,10 +19,10 @@ import {
   Pin,
   Trash2,
   Film,
-  Image as ImageIcon,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { ChatMessageWithSender } from '../../types/chat';
+import { renderReplyContent } from '../../lib/chatReplies';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,165 +52,44 @@ const statusLabels = {
 const QUICK_REACTIONS = ['❤️', '😂', '🥺', '🥰', '😘', '😢', '😡'];
 
 // ---------------------------------------------------------------------------
-// Helper: Helper for formatting reply content
+// Quoted parent message (shared content formatting lives in chatReplies.ts)
 // ---------------------------------------------------------------------------
 
-export function renderReplyContent(
-  replyMsg: ChatMessageWithSender['reply_to'] | null,
-  allMessages?: ChatMessageWithSender[],
-  replyToId?: string | null
-) {
-  let target = replyMsg;
-  if (!target && replyToId && allMessages) {
-    const found = allMessages.find((m) => m.id === replyToId);
-    if (found) {
-      target = {
-        id: found.id,
-        content: found.content,
-        type: found.type,
-        sender_id: found.sender_id,
-        is_deleted: found.is_deleted,
-        sender: found.sender,
-      };
-    }
-  }
-
-  if (!target || target.is_deleted) {
-    return {
-      senderName: target?.sender?.display_name ?? null,
-      text: 'Tin nhắn đã bị xóa',
-      isDeleted: true,
-      mediaType: null,
-      mediaUrl: null,
-    };
-  }
-
-  const senderName = target.sender?.display_name ?? null;
-
-  if (target.type === 'IMAGE') {
-    return {
-      senderName,
-      text: 'Hình ảnh',
-      isDeleted: false,
-      mediaType: 'IMAGE' as const,
-      mediaUrl: target.content,
-    };
-  }
-
-  if (target.type === 'VIDEO') {
-    return {
-      senderName,
-      text: 'Video',
-      isDeleted: false,
-      mediaType: 'VIDEO' as const,
-      mediaUrl: target.content,
-    };
-  }
-
-  if (target.type === 'EMOJI') {
-    return {
-      senderName,
-      text: target.content ?? 'Biểu cảm',
-      isDeleted: false,
-      mediaType: 'EMOJI' as const,
-      mediaUrl: null,
-    };
-  }
-
-  return {
-    senderName,
-    text: target.content || '',
-    isDeleted: false,
-    mediaType: 'TEXT' as const,
-    mediaUrl: null,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Sub-component: Reply Preview (Instagram Style)
-// ---------------------------------------------------------------------------
-
-const ReplyPreview: React.FC<{
+export const ReplyPreview: React.FC<{
   reply: ChatMessageWithSender['reply_to'];
   replyToId?: string | null;
   allMessages?: ChatMessageWithSender[];
   isOwn: boolean;
-  senderName: string;
   onScrollToMessage?: (messageId: string) => void;
-}> = ({ reply, replyToId, allMessages, isOwn, senderName, onScrollToMessage }) => {
-  const replyInfo = React.useMemo(() => {
-    if (!reply && !replyToId) return null;
-    return renderReplyContent(reply, allMessages, replyToId);
-  }, [reply, replyToId, allMessages]);
-
-  if (!replyInfo) return null;
-
-  const headerLabel = replyInfo.isDeleted
-    ? isOwn
-      ? 'Bạn đã trả lời một tin nhắn đã bị xóa'
-      : `${senderName} đã trả lời một tin nhắn đã bị xóa`
-    : isOwn
-    ? `Bạn đã trả lời "${replyInfo.text}"`
-    : `${senderName} đã trả lời "${replyInfo.text}"`;
-
+}> = ({ reply, replyToId, allMessages, isOwn, onScrollToMessage }) => {
+  if (!reply && !replyToId) return null;
+  const info = renderReplyContent(reply, allMessages, replyToId);
+  const targetId = replyToId || reply?.id;
   return (
-    <div className={cn('flex flex-col mb-1 max-w-full', isOwn ? 'items-end' : 'items-start')}>
-      {/* ── Muted floating header line (Instagram Style) ── */}
-      <div
-        onClick={(e) => {
-          e.stopPropagation();
-          const targetId = reply?.id || replyToId;
-          if (targetId) onScrollToMessage?.(targetId);
-        }}
-        className={cn(
-          'text-[11px] text-text-soft/80 font-normal flex items-center gap-1 mb-0.5 select-none cursor-pointer hover:underline hover:text-brand transition-colors',
-          isOwn ? 'pr-0.5' : 'pl-0.5'
-        )}
-        title="Nhấn để xem tin nhắn gốc"
-      >
-        <CornerDownRight className="w-3 h-3 text-text-soft/70 shrink-0" />
-        <span className="truncate max-w-[240px] sm:max-w-[320px]">
-          {headerLabel}
+    <button
+      type="button"
+      onClick={event => { event.stopPropagation(); if (targetId) onScrollToMessage?.(targetId); }}
+      className={cn(
+        'mb-1.5 flex min-h-14 w-64 max-w-full items-center gap-2.5 rounded-xl border border-l-[3px] px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand',
+        isOwn ? 'border-sky-200 border-l-sky-500 bg-sky-100/80 hover:bg-sky-100' : 'border-slate-200 border-l-sky-400 bg-slate-100/90 hover:bg-slate-200/80',
+      )}
+      aria-label={`Xem tin nhắn gốc: ${info.text}`}
+      title="Nhấn để xem tin nhắn gốc"
+    >
+      {info.mediaType === 'IMAGE' && info.mediaUrl && (
+        <img src={info.mediaUrl} alt="Ảnh được trả lời" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+      )}
+      {info.mediaType === 'VIDEO' && <Film className="h-5 w-5 shrink-0 text-sky-700" />}
+      <span className="min-w-0 flex-1">
+        <span className="mb-0.5 flex items-center gap-1 text-[11px] font-semibold text-sky-800">
+          <CornerDownRight className="h-3 w-3 shrink-0" />
+          <span className="truncate">Trả lời {info.senderName || 'tin nhắn'}</span>
         </span>
-      </div>
-
-      {/* ── Quoted message preview box ── */}
-      <div
-        onClick={(e) => {
-          e.stopPropagation();
-          const targetId = reply?.id || replyToId;
-          if (targetId) onScrollToMessage?.(targetId);
-        }}
-        className={cn(
-          'flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs select-none cursor-pointer transition-all hover:opacity-95 max-w-full',
-          isOwn
-            ? 'bg-black/15 text-white/90 border-l-2 border-white/80'
-            : 'bg-canvas-cool/90 text-text-soft border-l-2 border-brand/70 shadow-2xs'
-        )}
-        title="Nhấn để xem tin nhắn gốc"
-      >
-        {/* Thumbnail if Image */}
-        {replyInfo.mediaUrl && replyInfo.mediaType === 'IMAGE' && !replyInfo.isDeleted && (
-          <img
-            src={replyInfo.mediaUrl}
-            alt="thumbnail"
-            className="w-7 h-7 rounded object-cover shrink-0 border border-black/10"
-          />
-        )}
-        {/* Video icon if Video */}
-        {replyInfo.mediaType === 'VIDEO' && !replyInfo.isDeleted && (
-          <div className="w-7 h-7 rounded bg-black/20 flex items-center justify-center shrink-0">
-            <Film className="w-3.5 h-3.5 text-white" />
-          </div>
-        )}
-
-        <div className="flex-1 min-w-0">
-          <div className={cn('text-[11.5px] truncate leading-tight', replyInfo.isDeleted && 'italic opacity-75')}>
-            {replyInfo.text}
-          </div>
-        </div>
-      </div>
-    </div>
+        <span className={cn('line-clamp-2 break-words text-xs leading-relaxed text-slate-600', info.isDeleted && 'italic')}>
+          {info.text}
+        </span>
+      </span>
+    </button>
   );
 };
 
@@ -288,7 +167,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       {/* Bubble + Metadata Column */}
       <div
         className={cn(
-          'flex flex-col relative max-w-[75%] sm:max-w-[65%]',
+          'flex min-w-0 flex-col relative max-w-[80%] sm:max-w-[65%]',
           isOwn ? 'items-end' : 'items-start'
         )}
       >
@@ -313,7 +192,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             replyToId={message.reply_to_id}
             allMessages={allMessages}
             isOwn={isOwn}
-            senderName={senderName}
             onScrollToMessage={onScrollToMessage}
           />
         )}
@@ -343,7 +221,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 src={message.content}
                 alt="Ảnh"
                 loading="lazy"
-                className="rounded-xl max-w-[240px] max-h-60 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                className="w-60 max-w-full rounded-xl max-h-60 object-cover cursor-pointer hover:opacity-90 transition-opacity"
               />
             </a>
           ) : message.type === 'VIDEO' && message.content ? (
@@ -351,7 +229,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               src={message.content}
               controls
               playsInline
-              className="rounded-xl max-w-[260px] max-h-60 bg-black"
+              className="w-64 max-w-full rounded-xl max-h-60 bg-black"
             />
           ) : (
             <p className="select-text">{message.content}</p>

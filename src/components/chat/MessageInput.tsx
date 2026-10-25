@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { ChatMessageWithSender } from '../../types/chat';
-import { renderReplyContent } from './MessageBubble';
+import { renderReplyContent } from '../../lib/chatReplies';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -89,6 +89,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [text, setText] = useState('');
   const [isLocalSending, setIsLocalSending] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [sendError, setSendError] = useState('');
+  const [failedMedia, setFailedMedia] = useState<File | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -160,10 +162,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
     try {
+      setSendError('');
       setIsLocalSending(true);
       await onSendText(trimmed);
     } catch (err) {
-      console.error('[MessageInput] onSendText error:', err);
+      setText(current => current || trimmed);
+      setSendError(err instanceof Error ? err.message : 'Chưa gửi được tin nhắn. Vui lòng thử lại.');
     } finally {
       setIsLocalSending(false);
     }
@@ -171,7 +175,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
         e.preventDefault();
         void handleSendText();
       }
@@ -179,18 +183,16 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     [handleSendText],
   );
 
-  const handleFileSelect = useCallback(
-    async (e: ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files;
-      if (!files || files.length === 0 || activeSending) return;
-      const file = files[0];
-      e.target.value = '';
-
+  const sendMedia = useCallback(async (file: File) => {
+      if (activeSending) return;
       try {
+        setSendError('');
+        setFailedMedia(null);
         setIsLocalSending(true);
         await onSendMedia(file);
       } catch (err) {
-        console.error('[MessageInput] onSendMedia error:', err);
+        setFailedMedia(file);
+        setSendError(err instanceof Error ? err.message : 'Chưa gửi được ảnh. Vui lòng thử lại.');
       } finally {
         setIsLocalSending(false);
       }
@@ -198,15 +200,22 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     [activeSending, onSendMedia],
   );
 
+  const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) void sendMedia(file);
+  };
+
   const handleEmojiClick = useCallback(
     async (emoji: string) => {
       if (activeSending) return;
       setShowEmojiPicker(false);
       try {
+        setSendError('');
         setIsLocalSending(true);
         await onSendEmoji(emoji);
       } catch (err) {
-        console.error('[MessageInput] onSendEmoji error:', err);
+        setSendError(err instanceof Error ? err.message : 'Chưa gửi được biểu cảm. Vui lòng thử lại.');
       } finally {
         setIsLocalSending(false);
       }
@@ -227,6 +236,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     <div
       className="border-t border-canvas-dark bg-white shrink-0 flex flex-col"
     >
+      {sendError && (
+        <div role="alert" className="flex flex-wrap items-center gap-2 border-b border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span className="min-w-0 flex-1">{sendError}</span>
+          {failedMedia && <button type="button" disabled={activeSending} onClick={() => void sendMedia(failedMedia)} className="rounded-lg border border-red-200 px-3 py-1.5 font-semibold disabled:opacity-50">Thử gửi lại ảnh/tệp</button>}
+          <button type="button" aria-label="Đóng thông báo lỗi" onClick={() => { setSendError(''); setFailedMedia(null); }} className="p-2"><X className="h-4 w-4" /></button>
+        </div>
+      )}
+      {uploadProgress !== null && <p role="status" className="px-4 pt-2 text-xs text-text-soft">{uploadProgress < 100 ? `Đang tải tệp… ${uploadProgress}%` : 'Đã tải tệp, đang gửi tin nhắn…'}</p>}
       {/* Upload progress bar */}
       <AnimatePresence>
         {uploadProgress !== null && (
@@ -333,6 +350,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         ref={fileInputRef}
         type="file"
         accept="image/*,video/*"
+        disabled={activeSending}
         onChange={handleFileSelect}
         className="hidden"
       />

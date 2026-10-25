@@ -17,6 +17,7 @@ import { useCallback, useState } from 'react';
 import imageCompression from 'browser-image-compression';
 import { supabase } from '../utils/supabase';
 import type { MessageType } from '../types/chat';
+import { uploadChatMedia } from '../lib/chatMediaUpload';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -81,59 +82,6 @@ function readVideoDuration(file: File): Promise<number> {
     };
 
     video.src = url;
-  });
-}
-
-// ---------------------------------------------------------------------------
-// XHR-based upload with progress (wraps Supabase Storage REST API directly)
-// ---------------------------------------------------------------------------
-
-/**
- * Uploads a Blob to Supabase Storage via XHR to get onprogress events.
- * Returns the storage path on success.
- */
-function uploadWithProgress(
-  path: string,
-  blob: Blob,
-  mimeType: string,
-  onProgress: (pct: number) => void,
-): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${supabaseUrl}/storage/v1/object/${BUCKET}/${encodeURIComponent(path)}`);
-    xhr.setRequestHeader('Authorization', `Bearer ${anonKey}`);
-    xhr.setRequestHeader('Content-Type', mimeType);
-    xhr.setRequestHeader('x-upsert', 'false');
-
-    // Inject the user's JWT if available for RLS-compliant uploads
-    supabase.auth.getSession().then(({ data }) => {
-      const jwt = data.session?.access_token;
-      if (jwt) xhr.setRequestHeader('Authorization', `Bearer ${jwt}`);
-
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          onProgress(Math.round((e.loaded / e.total) * 100));
-        }
-      };
-
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          onProgress(100);
-          resolve();
-        } else {
-          const body = (() => {
-            try { return JSON.parse(xhr.responseText); } catch { return {}; }
-          })();
-          reject(new Error(body?.message ?? `Upload thất bại (HTTP ${xhr.status})`));
-        }
-      };
-
-      xhr.onerror = () => reject(new Error('Mất kết nối trong khi upload. Vui lòng thử lại.'));
-      xhr.send(blob);
-    });
   });
 }
 
@@ -214,14 +162,21 @@ export function useMediaUpload(): UseMediaUploadReturn {
       // -----------------------------------------------------------------------
       // Build storage path: {senderId}/{timestamp}.{ext}
       // -----------------------------------------------------------------------
-      const timestamp = Date.now();
-      const path = `${senderId}/${timestamp}.${ext}`;
+      const path = `${senderId}/${crypto.randomUUID()}.${ext}`;
 
       // Upload in the 50-100% window (images start at 50% after compression)
       const progressOffset = isImage ? 50 : 0;
       const progressScale = isImage ? 0.5 : 1;
 
-      await uploadWithProgress(path, blobToUpload, mimeType, (pct) => {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session || session.user.id !== senderId) {
+        throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để gửi ảnh.');
+      }
+      await uploadChatMedia({
+        url: import.meta.env.VITE_SUPABASE_URL,
+        apiKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        token: session.access_token,
+      }, path, blobToUpload.type ? blobToUpload : new Blob([blobToUpload], { type: mimeType }), (pct) => {
         setProgress(progressOffset + Math.round(pct * progressScale));
       });
 

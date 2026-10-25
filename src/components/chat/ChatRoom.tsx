@@ -39,6 +39,9 @@ import { useMediaUpload } from '../../hooks/useMediaUpload';
 import { supabaseRealtime } from '../../utils/supabase';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
+import { ChatSettingsMenu } from './ChatSettingsMenu';
+import { useChatNicknames } from '../../hooks/useChatNicknames';
+import { chatName, withChatNames } from '../../lib/chatNicknames';
 import type { ChatMessageWithSender, MessageType } from '../../types/chat';
 
 // ---------------------------------------------------------------------------
@@ -81,6 +84,7 @@ function makePendingMessage(
           type: replyTo.type,
           sender_id: replyTo.sender_id,
           is_deleted: replyTo.is_deleted,
+          sender: replyTo.sender,
         }
       : null,
   };
@@ -97,6 +101,8 @@ export const ChatRoom: React.FC = () => {
   const { permission, needsInstall, isSubscribed, error: pushError, requestPermissionAndSubscribe, isLoading: isPushLoading } = useWebPush();
 
   const careSpaceId = careSpace?.id ?? null;
+  const chatNames = useChatNicknames(careSpaceId, user?.id ?? null);
+  const { nicknames } = chatNames;
 
   // ── Phase-1 data hook ────────────────────────────────────────────────────
   const { messages, setMessages, isLoading, isFetchingMore, error, hasMore, loadMore } =
@@ -174,13 +180,14 @@ export const ChatRoom: React.FC = () => {
   // Combined list: real messages + pending ones prepended
   const allMessages = useMemo(() => {
     const pending = [...pendingMessages.values()];
-    return [...pending, ...messages];
-  }, [messages, pendingMessages]);
+    return [...pending, ...messages].map(message => withChatNames(message, profiles, nicknames));
+  }, [messages, pendingMessages, profiles, nicknames]);
 
   // ── Pinned messages banner preview ────────────────────────────────────────
   const newestPinnedMessage = useMemo(() => {
-    return messages.find((m) => m.is_pinned && !m.is_deleted) || null;
-  }, [messages]);
+    const pinned = messages.find((m) => m.is_pinned && !m.is_deleted);
+    return pinned ? withChatNames(pinned, profiles, nicknames) : null;
+  }, [messages, profiles, nicknames]);
 
   // Scroll to message utility
   const handleScrollToMessage = useCallback((messageId: string) => {
@@ -261,9 +268,9 @@ export const ChatRoom: React.FC = () => {
 
   const typingNames = useMemo(() => {
     return typingUsers
-      .map((uid) => profiles.find((p) => p.user_id === uid)?.display_name ?? 'Người bạn')
+      .map(uid => chatName(uid, profiles, nicknames, 'Người bạn'))
       .slice(0, 2);
-  }, [typingUsers, profiles]);
+  }, [typingUsers, profiles, nicknames]);
 
   const partnerProfile = useMemo(() => {
     return profiles.find((p) => p.user_id !== user?.id) || null;
@@ -312,7 +319,6 @@ export const ChatRoom: React.FC = () => {
       if (!user || !careSpaceId) return;
       const tempId = addOptimistic(text, 'TEXT');
       const currentReply = replyTo;
-      setReplyTo(null);
 
       try {
         setIsSending(true);
@@ -321,15 +327,14 @@ export const ChatRoom: React.FC = () => {
           type: 'TEXT',
           replyToId: currentReply?.id,
         });
+        setReplyTo(previous => previous?.id === currentReply?.id ? null : previous);
         log('chat_message');
-      } catch (err) {
-        console.error('[ChatRoom] sendMessage failed:', err);
       } finally {
         removePending(tempId);
         setIsSending(false);
       }
     },
-    [user, careSpaceId, replyTo, addOptimistic, removePending],
+    [user, careSpaceId, replyTo, addOptimistic, removePending, log],
   );
 
   const handleSendEmoji = useCallback(
@@ -337,7 +342,6 @@ export const ChatRoom: React.FC = () => {
       if (!user || !careSpaceId) return;
       const tempId = addOptimistic(emoji, 'EMOJI');
       const currentReply = replyTo;
-      setReplyTo(null);
 
       try {
         setIsSending(true);
@@ -346,8 +350,7 @@ export const ChatRoom: React.FC = () => {
           type: 'EMOJI',
           replyToId: currentReply?.id,
         });
-      } catch (err) {
-        console.error('[ChatRoom] sendMessage failed:', err);
+        setReplyTo(previous => previous?.id === currentReply?.id ? null : previous);
       } finally {
         removePending(tempId);
         setIsSending(false);
@@ -365,7 +368,6 @@ export const ChatRoom: React.FC = () => {
         const { publicUrl, type } = await upload(file, user.id);
         const tempId = addOptimistic(publicUrl, type);
         const currentReply = replyTo;
-        setReplyTo(null);
 
         try {
           await sendMessage(careSpaceId, user.id, {
@@ -373,13 +375,10 @@ export const ChatRoom: React.FC = () => {
             type,
             replyToId: currentReply?.id,
           });
-        } catch {
-          // ignore
+          setReplyTo(previous => previous?.id === currentReply?.id ? null : previous);
         } finally {
           removePending(tempId);
         }
-      } catch (err) {
-        alert((err as Error).message);
       } finally {
         setIsSending(false);
       }
@@ -494,8 +493,8 @@ export const ChatRoom: React.FC = () => {
 
             {/* Name + Subtitle (typing or online/offline status) */}
             <div className="flex flex-col min-w-0 leading-tight">
-              <span className="font-bold text-[14px] text-text-main truncate">
-                {partnerProfile?.display_name || careSpace?.name || 'Trò chuyện'}
+              <span title={partnerProfile?.display_name ? `Tên gốc: ${partnerProfile.display_name}` : undefined} className="font-bold text-[14px] text-text-main truncate">
+                {partnerProfile ? chatName(partnerProfile.user_id, profiles, nicknames) : careSpace?.name || 'Trò chuyện'}
               </span>
               <span className="text-[11px] truncate flex items-center gap-1">
                 {isPartnerTyping ? (
@@ -516,6 +515,9 @@ export const ChatRoom: React.FC = () => {
 
           {/* Right: Actions & Badges */}
           <div className="flex items-center gap-1.5 shrink-0">
+            <ChatSettingsMenu key={careSpaceId} profiles={profiles} currentUserId={user.id}
+              nicknames={nicknames} loading={chatNames.loading} error={chatNames.error}
+              onSave={chatNames.save} onRefresh={chatNames.refresh} />
             {/* Connection error */}
             {error && (
               <div className="flex items-center gap-1 text-[11px] bg-red-50 text-semantic-destructive font-semibold px-2.5 py-1 rounded-full border border-red-200 animate-pulse">
@@ -662,7 +664,7 @@ export const ChatRoom: React.FC = () => {
           onSendText={handleSendText}
           onSendMedia={handleSendMedia}
           onSendEmoji={handleSendEmoji}
-          replyTo={replyTo}
+          replyTo={replyTo ? withChatNames(replyTo, profiles, nicknames) : null}
           onCancelReply={() => setReplyTo(null)}
           uploadProgress={uploadProgress}
           isSending={activeSending}
